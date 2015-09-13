@@ -15,9 +15,6 @@
  */
 package io.apiman.manager.api.core.config;
 
-import io.apiman.common.config.ConfigFactory;
-import io.apiman.manager.api.core.logging.IApimanLogger;
-
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
@@ -26,17 +23,17 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import javax.enterprise.context.ApplicationScoped;
-
 import org.apache.commons.configuration.Configuration;
+
+import io.apiman.common.config.ConfigFactory;
+import io.apiman.manager.api.core.logging.IApimanLogger;
 
 /**
  * Configuration object for the API Manager.
  *
  * @author eric.wittmann@redhat.com
  */
-@ApplicationScoped
-public class ApiManagerConfig {
+public abstract class ApiManagerConfig {
 
     public static final String APIMAN_MANAGER_CONFIG_LOGGER = "apiman-manager.config.logger"; //$NON-NLS-1$
 
@@ -55,6 +52,8 @@ public class ApiManagerConfig {
     public static final String APIMAN_MANAGER_STORAGE_QUERY_TYPE = "apiman-manager.storage-query.type"; //$NON-NLS-1$
     public static final String APIMAN_MANAGER_IDM_STORAGE_TYPE = "apiman-manager.idm-storage.type"; //$NON-NLS-1$
 
+    public static final String APIMAN_MANAGER_SERVICE_CATALOG_TYPE = "apiman-manager.service-catalog.type"; //$NON-NLS-1$
+
     /* -------------------------------------------------------
      * Metrics
      * ------------------------------------------------------- */
@@ -69,6 +68,7 @@ public class ApiManagerConfig {
     public static final String APIMAN_MANAGER_SECURITY_CONTEXT_TYPE = "apiman-manager.security-context.type"; //$NON-NLS-1$
 
     public static final String APIMAN_PLUGIN_REPOSITORIES = "apiman.plugins.repositories"; //$NON-NLS-1$
+    public static final String APIMAN_PLUGIN_REGISTRIES = "apiman-manager.plugins.registries"; //$NON-NLS-1$
 
     public static final String DEFAULT_ES_CLUSTER_NAME = "apiman"; //$NON-NLS-1$
 
@@ -107,6 +107,25 @@ public class ApiManagerConfig {
         return rval;
     }
 
+    /**
+     * @return the configured plugin registries
+     */
+    public Set<URL> getPluginRegistries() {
+        Set<URL> rval = new HashSet<>();
+        String registries = config.getString(APIMAN_PLUGIN_REGISTRIES);
+        if (registries != null) {
+            String[] split = registries.split(","); //$NON-NLS-1$
+            for (String registry : split) {
+                try {
+                    rval.add(new URL(registry.trim()));
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        return rval;
+    }
+
     public String getSecurityContextType() {
         return config.getString(APIMAN_MANAGER_SECURITY_CONTEXT_TYPE, "default"); //$NON-NLS-1$
     }
@@ -130,6 +149,13 @@ public class ApiManagerConfig {
      */
     public String getIdmStorageType() {
         return config.getString(APIMAN_MANAGER_IDM_STORAGE_TYPE, getStorageType());
+    }
+
+    /**
+     * @return the configured service catalog query type
+     */
+    public String getServiceCatalogType() {
+        return config.getString(APIMAN_MANAGER_SERVICE_CATALOG_TYPE, null);
     }
 
     /**
@@ -256,6 +282,13 @@ public class ApiManagerConfig {
      */
     public Map<String, String> getMetricsProperties() {
         return getPrefixedProperties("apiman-manager.metrics."); //$NON-NLS-1$
+    }
+
+    /**
+     * @return any custom properties associated with the Service Catalog impl
+     */
+    public Map<String, String> getServiceCatalogProperties() {
+        return getPrefixedProperties("apiman-manager.service-catalog."); //$NON-NLS-1$
     }
 
     /**

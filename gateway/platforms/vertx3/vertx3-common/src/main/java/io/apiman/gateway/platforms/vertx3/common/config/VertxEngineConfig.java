@@ -15,6 +15,7 @@
  */
 package io.apiman.gateway.platforms.vertx3.common.config;
 
+import io.apiman.common.util.SimpleStringUtils;
 import io.apiman.gateway.engine.IComponent;
 import io.apiman.gateway.engine.IConnectorFactory;
 import io.apiman.gateway.engine.IEngineConfig;
@@ -27,8 +28,9 @@ import io.apiman.gateway.platforms.vertx3.common.verticles.VerticleType;
 import io.vertx.core.json.JsonObject;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Engine configuration, read simplistically from Vert'x JSON config.
@@ -188,13 +190,32 @@ public class VertxEngineConfig implements IEngineConfig {
     }
 
     protected Map<String, String> toFlatStringMap(JsonObject jsonObject) {
-        Map<String, String> outMap = new HashMap<>();
-
-        for(Entry<String, Object> pair : jsonObject.getMap().entrySet()) {
-            outMap.put(pair.getKey(), pair.getValue().toString());
-        }
-
+        Map<String, String> outMap = new LinkedHashMap<>();
+        // TODO figure out why this workaround is necessary.
+        jsonMapToProperties("", new JsonObject(jsonObject.encode()).getMap(), outMap);
         return outMap;
+    }
+
+    @SuppressWarnings("unchecked")
+    protected void jsonMapToProperties(String pathSoFar, Object value, Map<String, String> output) {
+        if (value instanceof Map) { // Descend again
+            Map<String, Object> map = (Map<String, Object>) value;
+            map.entrySet()
+                .forEach(elem -> jsonMapToProperties(determineKey(pathSoFar, elem.getKey()), elem.getValue(), output));
+        } else if (value instanceof List) { // Join objects and descend
+            List<Object> list = (List<Object>) value;
+            list.forEach(elem -> jsonMapToProperties(pathSoFar, elem, output));
+        } else { // Value
+            if (output.containsKey(pathSoFar)) {
+                output.put(pathSoFar, SimpleStringUtils.join(",", output.get(pathSoFar), value.toString()));
+            } else {
+                output.put(pathSoFar, value.toString());
+            }
+        }
+    }
+
+    private String determineKey(String pathSoFar, String key) {
+        return pathSoFar.length() == 0 ? key : pathSoFar + "." + key;
     }
 
     protected String getClassname(JsonObject obj, String prefix) {
@@ -246,7 +267,6 @@ public class VertxEngineConfig implements IEngineConfig {
         return config.getJsonObject(VERTICLES).getJsonObject(verticleType.toLowerCase());
     }
 
-
     public int getPort(String name) {
         return getVerticleConfig(name).getInteger(VERTICLE_PORT);
     }
@@ -264,19 +284,19 @@ public class VertxEngineConfig implements IEngineConfig {
     }
 
     public String getKeyStore() {
-        return config.getJsonObject(SSL).getJsonObject(SSL_KEYSTORE).getString(SSL_PATH);
+        return config.getJsonObject(SSL, new JsonObject()).getJsonObject(SSL_KEYSTORE, new JsonObject()).getString(SSL_PATH);
     }
 
     public String getKeyStorePassword() {
-        return config.getJsonObject(SSL).getJsonObject(SSL_KEYSTORE).getString(API_PASSWORD);
+        return config.getJsonObject(SSL, new JsonObject()).getJsonObject(SSL_KEYSTORE, new JsonObject()).getString(API_PASSWORD);
     }
 
     public String getTrustStore() {
-        return config.getJsonObject(SSL).getJsonObject(SSL_TRUSTSTORE).getString(SSL_PATH);
+        return config.getJsonObject(SSL, new JsonObject()).getJsonObject(SSL_TRUSTSTORE, new JsonObject()).getString(SSL_PATH);
     }
 
     public String getTrustStorePassword() {
-        return config.getJsonObject(SSL).getJsonObject(SSL_TRUSTSTORE).getString(API_PASSWORD);
+        return config.getJsonObject(SSL, new JsonObject()).getJsonObject(SSL_TRUSTSTORE, new JsonObject()).getString(API_PASSWORD);
     }
 
 }

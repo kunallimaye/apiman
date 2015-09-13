@@ -52,6 +52,8 @@ module Apiman {
         '/orgs/:org/services/:service/:version/activity'    : { templateUrl: 'service/service-activity.html' },
         '/orgs/:org/services/:service/:version/new-version' : { templateUrl: 'forms/new-serviceversion.html' },
 
+        '/orgs/:org/import/services'                        : { templateUrl: 'service/import-services.html' },
+
         '/browse/orgs'                            : { templateUrl: 'consumer/consumer-orgs.html' },
         '/browse/services'                        : { templateUrl: 'consumer/consumer-services.html' },
         '/browse/orgs/:org'                       : { templateUrl: 'consumer/consumer-org.html' },
@@ -150,16 +152,10 @@ module Apiman {
         $httpProvider.interceptors.push('authInterceptor');
     }]);
 
-    _module.run(['$rootScope', 'SystemSvcs', 'HawtioNav', ($rootScope, SystemSvcs, HawtioNav: HawtioMainNav.Registry) => {
-        SystemSvcs.getStatus(function(response) {
-            if (response && response.up) {
-                HawtioNav.add(tab);
-            } else {
-                log.debug('apiman reports that it is not running.');
-            }
-        }, function(error) {
-            log.debug('Error getting apiman system status: ' + JSON.stringify(error));
-        });
+    _module.run(['$rootScope', 'SystemSvcs', 'HawtioNav', 'Configuration', ($rootScope, SystemSvcs, HawtioNav: HawtioMainNav.Registry, Configuration) => {
+        if (!Configuration.platform || Configuration.platform == 'standalone') {
+            HawtioNav.add(tab);
+        }
         $rootScope.pluginName = Apiman.pluginName;
     }]);
 
