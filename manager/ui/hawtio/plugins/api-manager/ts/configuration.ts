@@ -9,6 +9,8 @@ module ApimanConfiguration {
             if ($window['APIMAN_CONFIG_DATA']) {
                 cdata = angular.copy($window['APIMAN_CONFIG_DATA']);
                 delete $window['APIMAN_CONFIG_DATA'];
+            } else {
+                console.log('***  Missing variable: APIMAN_CONFIG_DATA  ***');
             }
             cdata.getAuthorizationHeader = function() {
                 var authHeader = null;
@@ -17,7 +19,7 @@ module ApimanConfiguration {
                     var password = cdata.api.auth.basic.password;
                     var enc = btoa(username + ':' + password);
                     authHeader = 'Basic ' + enc;
-                } else if (cdata.api.auth.type == 'bearerToken') {
+                } else if (cdata.api.auth.type == 'bearerToken' || cdata.api.auth.type == 'bearerTokenFromHash') {
                     var token = cdata.api.auth.bearerToken.token;
                     authHeader = 'Bearer ' + token;
                 } else if (cdata.api.auth.type == 'authToken') {
@@ -26,6 +28,15 @@ module ApimanConfiguration {
                 }
                 return authHeader;
             };
+            if (!cdata.ui) {
+                cdata.ui = {
+                  header: false,
+                  metrics: true
+                };
+            }
+            if (cdata.ui.metrics == undefined || cdata.ui.metrics == null) {
+                cdata.ui.metrics = true;
+            }
             return cdata;
         }]);
 

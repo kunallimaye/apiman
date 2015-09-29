@@ -399,7 +399,7 @@ module Apiman {
                     id: "@pageId",
                     version: "@"
                 },
-                controller: function($scope) {
+                controller: ['$scope', ($scope) => {
                     $scope.policyListOptions = {
                         containerPositioning: 'relative',
 
@@ -410,7 +410,7 @@ module Apiman {
                     };
 
                     $scope.pluginName = $scope.$parent.pluginName;
-                },
+                }],
                 controllerAs: 'ctrl',
                 bindToController: true,
                 templateUrl: 'plugins/api-manager/html/directives/policyList.html'
@@ -427,9 +427,8 @@ module Apiman {
                     descr: '=description',
                     callback: '='
                 },
-                controller: function($scope) {
-
-                },
+                controller: ['$scope', ($scope) => {
+                }],
                 link: function($scope, $elem, $attrs) {
                     $scope.defaultValue = $attrs.defaultValue;
 
@@ -439,16 +438,25 @@ module Apiman {
                     $scope.topPosition = 0;
                     $scope.leftPosition = 0;
                     $scope.height = 60;
-
+                    
+                    /*
                     // If description is updated, call updateFunction.
                     $scope.$watch(function() {
                         return $scope.descr;
                     },
                     function(new_value, old_value) {
-                        if (old_value !== new_value && typeof old_value !== 'undefined') {
+                        if (old_value !== new_value && typeof new_value !== 'undefined') {
+                            console.log('old_value' + old_value);
+                            console.log('new_value: ' + new_value);
+                            console.log('callback()');
                              $scope.callback(new_value || '');
                          }
-                    });
+                    });*/
+                    
+                    
+                    $scope.saveDescription = function() {
+                        $scope.callback($scope.descr);
+                    };
 
                     $scope.focusOnDescription = function(event) {
                         elem = event.target;

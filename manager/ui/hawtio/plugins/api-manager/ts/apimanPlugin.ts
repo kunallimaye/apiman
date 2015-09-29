@@ -152,9 +152,52 @@ module Apiman {
         $httpProvider.interceptors.push('authInterceptor');
     }]);
 
-    _module.run(['$rootScope', 'SystemSvcs', 'HawtioNav', 'Configuration', ($rootScope, SystemSvcs, HawtioNav: HawtioMainNav.Registry, Configuration) => {
+    _module.run(['$rootScope', 'SystemSvcs', 'HawtioNav', 'Configuration', '$location', ($rootScope, SystemSvcs, HawtioNav: HawtioMainNav.Registry, Configuration, $location) => 
+    {
+        $rootScope.isDirty = false;
+        
+        $rootScope.$on('$locationChangeStart', function(event, newUrl, oldUrl) {
+            if($rootScope.isDirty) {
+                if(confirm('You have unsaved changes. Are you sure you would like to navigate away from this page? You will lose these changes.') != true) {
+                    event.preventDefault();
+                }
+            }
+        });
+        
         if (!Configuration.platform || Configuration.platform == 'standalone') {
             HawtioNav.add(tab);
+        }
+        
+        if (Configuration.api && Configuration.api.auth && Configuration.api.auth.type == 'bearerTokenFromHash') {
+            var bearerToken = null;
+            var tokenKey = "Apiman.BearerToken";
+            var backToKey = "Apiman.BackToConsole";
+
+            var hash = $location.hash();
+            if (hash) {
+                console.log("*** HASH: " + hash);
+                var settings = JSON.parse(hash);
+                console.log("*** Settings: " + settings);
+                localStorage[tokenKey] = settings.token;
+                localStorage[backToKey] = settings.backTo;
+                $location.hash(null);
+                bearerToken = settings.token;
+                console.log('*** Bearer token from hash: ' + bearerToken);
+            } else {
+                try {
+                    bearerToken = localStorage[tokenKey];
+                    console.log('*** Bearer token from local storage: ' + bearerToken);
+                } catch (e) {
+                    console.log('*** Bearer token from local storage was invalid!');
+                    localStorage.removeItem(tokenKey);
+                    bearerToken = null;
+                }
+            }
+            if (bearerToken) {
+                Configuration.api.auth.bearerToken = {
+                    token: bearerToken
+                };
+            }
         }
         $rootScope.pluginName = Apiman.pluginName;
     }]);

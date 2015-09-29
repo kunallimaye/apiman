@@ -3,12 +3,13 @@
 module Apiman {
 
     export var AppMetricsController = _module.controller("Apiman.AppMetricsController",
-        ['$q', '$scope', '$location', 'PageLifecycle', 'AppEntityLoader', '$routeParams', 'MetricsSvcs',
-        ($q, $scope, $location, PageLifecycle, AppEntityLoader, $routeParams, MetricsSvcs) => {
+        ['$q', '$scope', '$location', 'PageLifecycle', 'AppEntityLoader', '$routeParams', 'MetricsSvcs', 'Configuration',
+        ($q, $scope, $location, PageLifecycle, AppEntityLoader, $routeParams, MetricsSvcs, Configuration) => {
             var params = $routeParams;
             $scope.organizationId = params.org;
             $scope.tab = 'metrics';
             $scope.version = params.version;
+            $scope.showMetrics = Configuration.ui.metrics;
             $scope.metricsRange = '7days';
             $scope.metricsType = 'usage';
 
@@ -128,6 +129,7 @@ module Apiman {
                     refreshUsageCharts();
                 }
             };
+            $scope.refreshCharts = refreshCharts;
             
             $scope.$watch('metricsRange', function(newValue, oldValue) {
                 if (newValue && newValue != oldValue) {

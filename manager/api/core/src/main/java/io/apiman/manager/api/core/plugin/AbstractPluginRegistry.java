@@ -67,18 +67,35 @@ public abstract class AbstractPluginRegistry implements IPluginRegistry {
      */
     @Override
     public Plugin loadPlugin(PluginCoordinates coordinates) throws InvalidPluginException {
-        if (pluginCache.containsKey(coordinates)) {
-            return pluginCache.get(coordinates);
-        }
-
+        boolean isSnapshot = PluginUtils.isSnapshot(coordinates);
         synchronized (mutex) {
+            if (pluginCache.containsKey(coordinates)) {
+                Plugin cachedPlugin = pluginCache.get(coordinates);
+                if (isSnapshot) {
+                    pluginCache.remove(coordinates);
+                    try { cachedPlugin.getLoader().close(); } catch (IOException e) { e.printStackTrace(); }
+                } else {
+                    return cachedPlugin;
+                }
+            }
             String pluginRelativePath = PluginUtils.getPluginRelativePath(coordinates);
             File pluginDir = new File(pluginsDir, pluginRelativePath);
             if (!pluginDir.exists()) {
                 pluginDir.mkdirs();
             }
             File pluginFile = new File(pluginDir, "plugin." + coordinates.getType()); //$NON-NLS-1$
-            // Doesn't exist?  Better download it
+
+            // Clean up stale files in the case of a snapshot.
+            if (pluginFile.exists() && isSnapshot) {
+                try {
+                    FileUtils.deleteDirectory(pluginFile.getParentFile());
+                    pluginFile.getParentFile().mkdirs();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            // Doesn't exist (or it's a snapshot)?  Better download it.
             if (!pluginFile.exists()) {
                 downloadPlugin(pluginFile, coordinates);
             }
@@ -99,6 +116,7 @@ public abstract class AbstractPluginRegistry implements IPluginRegistry {
             try {
                 PluginSpec spec = PluginUtils.readPluginSpecFile(specFile);
                 Plugin plugin = new Plugin(spec, coordinates, pluginClassLoader);
+                pluginCache.put(coordinates, plugin);
                 return plugin;
             } catch (Exception e) {
                 throw new InvalidPluginException(Messages.i18n.format("AbstractPluginRegistry.FailedToReadSpecFile", PluginUtils.PLUGIN_SPEC_PATH), e); //$NON-NLS-1$

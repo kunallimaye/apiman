@@ -153,6 +153,7 @@ public class DefaultPluginRegistry implements IPluginRegistry {
     @Override
     public Future<IAsyncResult<Plugin>> loadPlugin(final PluginCoordinates coordinates, final IAsyncResultHandler<Plugin> userHandler) {
         final PluginFuture future = new PluginFuture();
+        final boolean isSnapshot = PluginUtils.isSnapshot(coordinates);
 
         // Wrap the user provided handler so we can hook into the response.  We want to cache
         // the result (regardless of whether it's a success or failure)
@@ -161,9 +162,21 @@ public class DefaultPluginRegistry implements IPluginRegistry {
             public void handle(IAsyncResult<Plugin> result) {
                 synchronized (pluginCache) {
                     if (result.isError()) {
-                        errorCache.put(coordinates, result.getError());
+                        // Don't cache errors if the plugin is a snapshot version.
+                        if (!isSnapshot) {
+                            errorCache.put(coordinates, result.getError());
+                        }
                     } else {
-                        pluginCache.put(coordinates, result.getResult());
+                        // Make sure we *always* use whatever is in the cache.  This resolves a
+                        // race condition where multiple threads could ask for the plugin at the
+                        // same time, resulting in two or more threads downloading the plugin.
+                        // This is OK as long as we make sure we only ever use one.
+                        if (pluginCache.containsKey(coordinates)) {
+                            try { result.getResult().getLoader().close(); } catch (IOException e) {}
+                            result = AsyncResultImpl.create(pluginCache.get(coordinates));
+                        } else {
+                            pluginCache.put(coordinates, result.getResult());
+                        }
                     }
                 }
                 if (userHandler != null) {
@@ -178,13 +191,17 @@ public class DefaultPluginRegistry implements IPluginRegistry {
 
             // First check the cache.
             if (pluginCache.containsKey(coordinates)) {
-                // Invoke the user handler directly - we know we don't need to re-cache it.
-                AsyncResultImpl<Plugin> result = AsyncResultImpl.create(pluginCache.get(coordinates));
-                if (userHandler != null) {
-                    userHandler.handle(result);
+                if (isSnapshot) {
+                    removeFromCache(coordinates);
+                } else {
+                    // Invoke the user handler directly - we know we don't need to re-cache it.
+                    AsyncResultImpl<Plugin> result = AsyncResultImpl.create(pluginCache.get(coordinates));
+                    if (userHandler != null) {
+                        userHandler.handle(result);
+                    }
+                    future.setResult(result);
+                    handled = true;
                 }
-                future.setResult(result);
-                handled = true;
             }
 
             // Check the error cache - don't keep trying again and again for a failure.
@@ -211,11 +228,15 @@ public class DefaultPluginRegistry implements IPluginRegistry {
         // Next try to load it from the plugin file registry
         if (!handled) {
             if (pluginFile.isFile()) {
-                handled = true;
-                try {
-                    handler.handle(AsyncResultImpl.create(readPluginFile(coordinates, pluginFile)));
-                } catch (Exception error) {
-                    handler.handle(AsyncResultImpl.<Plugin>create(error));
+                if (isSnapshot) {
+                    try { FileUtils.deleteDirectory(pluginDir); } catch (IOException e) { }
+                } else {
+                    handled = true;
+                    try {
+                        handler.handle(AsyncResultImpl.create(readPluginFile(coordinates, pluginFile)));
+                    } catch (Exception error) {
+                        handler.handle(AsyncResultImpl.<Plugin>create(error));
+                    }
                 }
             }
         }
@@ -261,7 +282,8 @@ public class DefaultPluginRegistry implements IPluginRegistry {
                                 }
                                 File pluginFile = new File(pluginDir, "plugin." + coordinates.getType()); //$NON-NLS-1$
                                 if (!pluginFile.exists()) {
-                                    FileUtils.moveFile(downloadedArtifactFile, pluginFile);
+                                    FileUtils.copyFile(downloadedArtifactFile, pluginFile);
+                                    FileUtils.deleteQuietly(downloadedArtifactFile);
                                 } else {
                                     FileUtils.deleteQuietly(downloadedArtifactFile);
                                 }
@@ -278,6 +300,15 @@ public class DefaultPluginRegistry implements IPluginRegistry {
         }
 
         return future;
+    }
+
+    /**
+     * @param coordinates
+     */
+    private void removeFromCache(PluginCoordinates coordinates) {
+        Plugin plugin = pluginCache.remove(coordinates);
+        try { plugin.getLoader().close(); } catch (IOException e) { }
+
     }
 
     /**

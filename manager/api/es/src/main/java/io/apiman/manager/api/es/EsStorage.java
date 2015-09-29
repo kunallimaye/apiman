@@ -396,7 +396,6 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     @Override
     public void updateOrganization(OrganizationBean organization) throws StorageException {
         updateEntity("organization", organization.getId(), EsMarshalling.marshall(organization)); //$NON-NLS-1$
-        // TODO also update all entities that inline the organization name, if that has changed!  (bulk api?)
     }
 
     /**
@@ -405,7 +404,6 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     @Override
     public void updateApplication(ApplicationBean application) throws StorageException {
         updateEntity("application", id(application.getOrganization().getId(), application.getId()), EsMarshalling.marshall(application)); //$NON-NLS-1$
-        // TODO also update the application versions (in case the description changed)  (bulk api?)
     }
 
     /**
@@ -424,7 +422,6 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     @Override
     public void updateService(ServiceBean service) throws StorageException {
         updateEntity("service", id(service.getOrganization().getId(), service.getId()), EsMarshalling.marshall(service)); //$NON-NLS-1$
-        // TODO also update the service versions (in case the description changed)  (bulk api?)
     }
 
     /**
@@ -470,7 +467,6 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     @Override
     public void updatePlan(PlanBean plan) throws StorageException {
         updateEntity("plan", id(plan.getOrganization().getId(), plan.getId()), EsMarshalling.marshall(plan)); //$NON-NLS-1$
-        // TODO also update the plan versions (in case the description changed)  (bulk api?)
     }
 
     /**
@@ -531,6 +527,13 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
         updateEntity("policyDef", policyDef.getId(), EsMarshalling.marshall(policyDef)); //$NON-NLS-1$
     }
 
+    /**
+     * @see io.apiman.manager.api.core.IStorage#updatePlugin(io.apiman.manager.api.beans.plugins.PluginBean)
+     */
+    @Override
+    public void updatePlugin(PluginBean pluginBean) throws StorageException {
+        updateEntity("plugin", String.valueOf(pluginBean.getId()), EsMarshalling.marshall(pluginBean)); //$NON-NLS-1$
+    }
 
     /**
      * @see io.apiman.manager.api.core.IIdmStorage#updateRole(io.apiman.manager.api.beans.idm.RoleBean)
@@ -1613,7 +1616,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
                 QueryBuilders.matchAllQuery(),
                 FilterBuilders.termFilter("userId", userId)
             );
-            SearchSourceBuilder builder = new SearchSourceBuilder().query(qb).size(2);
+            SearchSourceBuilder builder = new SearchSourceBuilder().query(qb).size(500);
             List<Hit<Map<String,Object>,Void>> hits = listEntities("roleMembership", builder); //$NON-NLS-1$
             Set<RoleMembershipBean> rval = new HashSet<>();
             for (Hit<Map<String,Object>,Void> hit : hits) {
@@ -1641,7 +1644,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
                     FilterBuilders.termFilter("organizationId", organizationId)
                 )
             );
-            SearchSourceBuilder builder = new SearchSourceBuilder().query(qb).size(2);
+            SearchSourceBuilder builder = new SearchSourceBuilder().query(qb).size(500);
             List<Hit<Map<String,Object>,Void>> hits = listEntities("roleMembership", builder); //$NON-NLS-1$
             Set<RoleMembershipBean> rval = new HashSet<>();
             for (Hit<Map<String,Object>,Void> hit : hits) {

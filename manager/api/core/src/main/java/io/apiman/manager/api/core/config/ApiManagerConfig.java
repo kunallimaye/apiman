@@ -15,6 +15,9 @@
  */
 package io.apiman.manager.api.core.config;
 
+import io.apiman.common.config.ConfigFactory;
+import io.apiman.manager.api.core.logging.IApimanLogger;
+
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
@@ -25,9 +28,6 @@ import java.util.Set;
 
 import org.apache.commons.configuration.Configuration;
 
-import io.apiman.common.config.ConfigFactory;
-import io.apiman.manager.api.core.logging.IApimanLogger;
-
 /**
  * Configuration object for the API Manager.
  *
@@ -36,6 +36,8 @@ import io.apiman.manager.api.core.logging.IApimanLogger;
 public abstract class ApiManagerConfig {
 
     public static final String APIMAN_MANAGER_CONFIG_LOGGER = "apiman-manager.config.logger"; //$NON-NLS-1$
+
+    public static final String APIMAN_API_KEY_GENERATOR_TYPE = "apiman-manager.api-keys.generator.type"; //$NON-NLS-1$
 
     /* -------------------------------------------------------
      * Storage
@@ -176,7 +178,7 @@ public abstract class ApiManagerConfig {
      * @return the elasticsearch port
      */
     public int getStorageESPort() {
-        return config.getInt(APIMAN_MANAGER_STORAGE_ES_PORT, 19300);
+        return config.getInt(APIMAN_MANAGER_STORAGE_ES_PORT, 19200);
     }
 
     /**
@@ -205,6 +207,13 @@ public abstract class ApiManagerConfig {
      */
     public boolean isInitializeStorageES() {
         return config.getBoolean(APIMAN_MANAGER_STORAGE_ES_INITIALIZE, true);
+    }
+
+    /**
+     * @return the configured API key generator type
+     */
+    public String getApiKeyGeneratorType() {
+        return config.getString(APIMAN_API_KEY_GENERATOR_TYPE, "uuid"); //$NON-NLS-1$
     }
 
     /**
@@ -282,6 +291,13 @@ public abstract class ApiManagerConfig {
      */
     public Map<String, String> getMetricsProperties() {
         return getPrefixedProperties("apiman-manager.metrics."); //$NON-NLS-1$
+    }
+
+    /**
+     * @return any custom properties associated with the custom API Key generator
+     */
+    public Map<String, String> getApiKeyGeneratorProperties() {
+        return getPrefixedProperties("apiman-manager.api-keys.generator."); //$NON-NLS-1$
     }
 
     /**

@@ -16,31 +16,6 @@
 
 package io.apiman.manager.api.rest.impl;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeMap;
-
-import javax.enterprise.context.RequestScoped;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-
-import org.apache.commons.io.IOUtils;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.ISODateTimeFormat;
-
 import io.apiman.common.util.AesEncrypter;
 import io.apiman.gateway.engine.beans.ServiceEndpoint;
 import io.apiman.manager.api.beans.BeanUtils;
@@ -92,6 +67,7 @@ import io.apiman.manager.api.beans.search.SearchCriteriaBean;
 import io.apiman.manager.api.beans.search.SearchCriteriaFilterOperator;
 import io.apiman.manager.api.beans.search.SearchResultsBean;
 import io.apiman.manager.api.beans.services.NewServiceBean;
+import io.apiman.manager.api.beans.services.NewServiceDefinitionBean;
 import io.apiman.manager.api.beans.services.NewServiceVersionBean;
 import io.apiman.manager.api.beans.services.ServiceBean;
 import io.apiman.manager.api.beans.services.ServiceDefinitionType;
@@ -166,6 +142,32 @@ import io.apiman.manager.api.rest.impl.i18n.Messages;
 import io.apiman.manager.api.rest.impl.util.ExceptionFactory;
 import io.apiman.manager.api.rest.impl.util.FieldValidator;
 import io.apiman.manager.api.security.ISecurityContext;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.TreeMap;
+
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+
+import org.apache.commons.io.IOUtils;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
+import org.joda.time.format.ISODateTimeFormat;
 
 /**
  * Implementation of the Organization API.
@@ -1217,6 +1219,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
                 newServiceVersion.setPlans(bean.getPlans());
                 newServiceVersion.setPublicService(bean.getPublicService());
                 newServiceVersion.setVersion(bean.getInitialVersion());
+                newServiceVersion.setDefinitionUrl(bean.getDefinitionUrl());
+                newServiceVersion.setDefinitionType(bean.getDefinitionType());
                 createServiceVersionInternal(newServiceVersion, newService, gateway);
             }
 
@@ -1383,21 +1387,23 @@ public class OrganizationResourceImpl implements IOrganizationResource {
                 if (bean.getPublicService() == null) {
                     updatedService.setPublicService(cloneSource.isPublicService());
                 }
-                newVersion = updateServiceVersion(organizationId, serviceId, bean.getVersion(), updatedService );
+                newVersion = updateServiceVersion(organizationId, serviceId, bean.getVersion(), updatedService);
 
-                // Clone the service definition document
-                InputStream definition = null;
-                try {
-                    Response response = getServiceDefinition(organizationId, serviceId, bean.getCloneVersion());
-                    definition = (InputStream) response.getEntity();
-                    storeServiceDefinition(organizationId, serviceId, newVersion.getVersion(),
-                            cloneSource.getDefinitionType(), definition);
-                } catch (ServiceDefinitionNotFoundException svnfe) {
-                    // This is ok - it just means the service doesn't have one, so do nothing.
-                } catch (Exception sdnfe) {
-                    log.error("Unable to create response", sdnfe); //$NON-NLS-1$
-                } finally {
-                    IOUtils.closeQuietly(definition);
+                if (bean.getDefinitionUrl() == null) {
+                    // Clone the service definition document
+                    InputStream definition = null;
+                    try {
+                        Response response = getServiceDefinition(organizationId, serviceId, bean.getCloneVersion());
+                        definition = (InputStream) response.getEntity();
+                        storeServiceDefinition(organizationId, serviceId, newVersion.getVersion(),
+                                cloneSource.getDefinitionType(), definition);
+                    } catch (ServiceDefinitionNotFoundException svnfe) {
+                        // This is ok - it just means the service doesn't have one, so do nothing.
+                    } catch (Exception sdnfe) {
+                        log.error("Unable to create response", sdnfe); //$NON-NLS-1$
+                    } finally {
+                        IOUtils.closeQuietly(definition);
+                    }
                 }
 
                 // Clone all service policies
@@ -1451,6 +1457,9 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         if (bean.getPlans() != null) {
             newVersion.setPlans(bean.getPlans());
         }
+        if (bean.getDefinitionType() != null) {
+            newVersion.setDefinitionType(bean.getDefinitionType());
+        }
 
         if (gateway != null) {
             if (newVersion.getGateways() == null) {
@@ -1484,6 +1493,19 @@ public class OrganizationResourceImpl implements IOrganizationResource {
 
         storage.createServiceVersion(newVersion);
         storage.createAuditEntry(AuditUtils.serviceVersionCreated(newVersion, securityContext));
+
+        if (bean.getDefinitionUrl() != null) {
+            InputStream definition = null;
+            try {
+                definition = new URL(bean.getDefinitionUrl()).openStream();
+                storage.updateServiceDefinition(newVersion, definition);
+            } catch (Exception e) {
+                log.error("Unable to store service definition from: " + bean.getDefinitionUrl(), e); //$NON-NLS-1$
+            } finally {
+                IOUtils.closeQuietly(definition);
+            }
+        }
+
         return newVersion;
     }
 
@@ -1761,6 +1783,29 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             }
             storeServiceDefinition(organizationId, serviceId, version, newDefinitionType, data);
             log.debug(String.format("Updated service definition for %s", serviceId)); //$NON-NLS-1$
+        } finally {
+            IOUtils.closeQuietly(data);
+        }
+    }
+
+    /**
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#updateServiceDefinitionFromURL(java.lang.String, java.lang.String, java.lang.String, io.apiman.manager.api.beans.services.NewServiceDefinitionBean)
+     */
+    @Override
+    public void updateServiceDefinitionFromURL(String organizationId, String serviceId, String version,
+            NewServiceDefinitionBean bean) throws ServiceVersionNotFoundException, NotAuthorizedException,
+                    InvalidServiceStatusException {
+        InputStream data;
+        try {
+            String definitionURL = bean.getDefinitionUrl();
+            URL url = new URL(definitionURL);
+            data = url.openStream();
+        } catch (IOException e) {
+            throw new SystemErrorException(e);
+        }
+        try {
+            storeServiceDefinition(organizationId, serviceId, version, bean.getDefinitionType(), data);
+            log.debug(String.format("Updated service definition for %s from URL %s", serviceId, bean.getDefinitionUrl())); //$NON-NLS-1$
         } finally {
             IOUtils.closeQuietly(data);
         }
@@ -2862,6 +2907,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             TreeMap<String, MemberBean> members = new TreeMap<>();
             for (RoleMembershipBean membershipBean : memberships) {
                 String userId = membershipBean.getUserId();
+                String roleId = membershipBean.getRoleId();
+                RoleBean role = idmStorage.getRole(roleId);
+
+                // Role does not exist!
+                if (role == null) {
+                    continue;
+                }
+
                 MemberBean member = members.get(userId);
                 if (member == null) {
                     UserBean user = idmStorage.getUser(userId);
@@ -2872,8 +2925,6 @@ public class OrganizationResourceImpl implements IOrganizationResource {
                     member.setRoles(new ArrayList<MemberRoleBean>());
                     members.put(userId, member);
                 }
-                String roleId = membershipBean.getRoleId();
-                RoleBean role = idmStorage.getRole(roleId);
                 MemberRoleBean mrb = new MemberRoleBean();
                 mrb.setRoleId(roleId);
                 mrb.setRoleName(role.getName());

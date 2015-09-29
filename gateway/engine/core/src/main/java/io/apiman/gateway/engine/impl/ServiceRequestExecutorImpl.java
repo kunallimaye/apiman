@@ -134,6 +134,7 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
         return new IAsyncResultHandler<IEngineResult>() {
             @Override
             public void handle(IAsyncResult<IEngineResult> result) {
+                boolean doRecord = true;
                 if (result.isError()) {
                     recordErrorMetrics(result.getError());
                 } else {
@@ -142,10 +143,13 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
                         recordFailureMetrics(engineResult.getPolicyFailure());
                     } else {
                         recordSuccessMetrics(engineResult.getServiceResponse());
+                        doRecord = false; // don't record the metric now because we need to record # of bytes downloaded, which hasn't happened yet
                     }
                 }
                 requestMetric.setRequestEnd(new Date());
-                metrics.record(requestMetric);
+                if (doRecord) {
+                    metrics.record(requestMetric);
+                }
                 handler.handle(result);
             }
         };
@@ -185,6 +189,7 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
     public void execute() {
         // Fill out some of the basic metrics structure.
         requestMetric.setRequestStart(new Date());
+        requestMetric.setUrl(request.getUrl());
         requestMetric.setResource(request.getDestination());
         requestMetric.setMethod(request.getType());
         requestMetric.setServiceOrgId(request.getServiceOrgId());
@@ -198,8 +203,6 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
         final IAsyncHandler<List<PolicyWithConfiguration>> policiesLoadedHandler = new IAsyncHandler<List<PolicyWithConfiguration>>() {
             @Override
             public void handle(List<PolicyWithConfiguration> result) {
-
-
                 policyImpls = result;
                 // Set up the policy chain request, call #doApply to execute.
                 requestChain = createRequestChain(new IAsyncHandler<ServiceRequest>() {
@@ -225,6 +228,7 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
                         requestChain.bodyHandler(new IAsyncHandler<IApimanBuffer>() {
                             @Override
                             public void handle(IApimanBuffer buffer) {
+                                requestMetric.setBytesUploaded(requestMetric.getBytesUploaded() + buffer.length());
                                 serviceConnection.write(buffer);
                             }
                         });
@@ -365,7 +369,7 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
                     if (result.isSuccess()) {
                         IPolicy policyImpl = result.getResult();
                         try {
-                            Object policyConfig = policyFactory.loadConfig(policyImpl, policy.getPolicyJsonConfig());
+                            Object policyConfig = policyFactory.loadConfig(policyImpl, policy.getPolicyImpl(), policy.getPolicyJsonConfig());
                             PolicyWithConfiguration pwc = new PolicyWithConfiguration(policyImpl, policyConfig);
                             rval.set(localIdx, pwc);
                         } catch (Throwable t) {
@@ -425,19 +429,19 @@ public class ServiceRequestExecutorImpl implements IServiceRequestExecutor {
 
                             // We've come all the way through the response chain successfully
                             responseChain.bodyHandler(new IAsyncHandler<IApimanBuffer>() {
-
                                 @Override
                                 public void handle(IApimanBuffer result) {
+                                    requestMetric.setBytesDownloaded(requestMetric.getBytesDownloaded() + result.length());
                                     engineResult.write(result);
                                 }
                             });
 
                             responseChain.endHandler(new IAsyncHandler<Void>() {
-
                                 @Override
                                 public void handle(Void result) {
                                     engineResult.end();
                                     finished = true;
+                                    metrics.record(requestMetric);
                                 }
                             });
 

@@ -3,13 +3,14 @@
 module Apiman {
 
  export var ServicePlansController = _module.controller("Apiman.ServicePlansController",
-        ['$q', '$scope', '$location', 'PageLifecycle', 'ServiceEntityLoader', 'OrgSvcs', 'ApimanSvcs', '$routeParams', 'EntityStatusService',
-        ($q, $scope, $location, PageLifecycle, ServiceEntityLoader, OrgSvcs, ApimanSvcs, $routeParams, EntityStatusService) => {
+        ['$q', '$rootScope', '$scope', '$location', 'PageLifecycle', 'ServiceEntityLoader', 'OrgSvcs', 'ApimanSvcs', '$routeParams', 'EntityStatusService', 'Configuration',
+        ($q, $rootScope, $scope, $location, PageLifecycle, ServiceEntityLoader, OrgSvcs, ApimanSvcs, $routeParams, EntityStatusService, Configuration) => {
             var params = $routeParams;
             $scope.organizationId = params.org;
             $scope.tab = 'plans';
             $scope.version = params.version;
             $scope.updatedService = new Object();
+            $scope.showMetrics = Configuration.ui.metrics;
 
             var lockedPlans = [];
             var getSelectedPlans = function() {
@@ -86,7 +87,7 @@ module Apiman {
                         }
                     }
                 }
-                $scope.isDirty = dirty;
+                $rootScope.isDirty = dirty;
             }, true);
 
             $scope.$watch('plans', function(newValue) {
@@ -106,7 +107,7 @@ module Apiman {
                     }
                 }
                 $scope.updatedService.plans = getSelectedPlans();
-                $scope.isDirty = false;
+                $rootScope.isDirty = false;
             };
 
             $scope.saveService = function() {
@@ -114,7 +115,7 @@ module Apiman {
 
                 OrgSvcs.update({ organizationId: params.org, entityType: 'services', entityId: params.service, versionsOrActivity: 'versions', version: params.version }, $scope.updatedService, function(reply) {
                     $scope.version.publicService = $scope.updatedService.publicService;
-                    $scope.isDirty = false;
+                    $rootScope.isDirty = false;
                     $scope.saveButton.state = 'complete';
                     $scope.version = reply;
                     EntityStatusService.setEntityStatus(reply.status);
