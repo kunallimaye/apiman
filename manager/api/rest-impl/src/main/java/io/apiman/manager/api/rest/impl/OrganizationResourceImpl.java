@@ -30,6 +30,8 @@ import io.apiman.manager.api.beans.audit.data.EntityUpdatedData;
 import io.apiman.manager.api.beans.audit.data.MembershipData;
 import io.apiman.manager.api.beans.contracts.ContractBean;
 import io.apiman.manager.api.beans.contracts.NewContractBean;
+import io.apiman.manager.api.beans.download.DownloadBean;
+import io.apiman.manager.api.beans.download.DownloadType;
 import io.apiman.manager.api.beans.gateways.GatewayBean;
 import io.apiman.manager.api.beans.idm.GrantRolesBean;
 import io.apiman.manager.api.beans.idm.PermissionType;
@@ -75,6 +77,7 @@ import io.apiman.manager.api.beans.services.ServiceGatewayBean;
 import io.apiman.manager.api.beans.services.ServicePlanBean;
 import io.apiman.manager.api.beans.services.ServiceStatus;
 import io.apiman.manager.api.beans.services.ServiceVersionBean;
+import io.apiman.manager.api.beans.services.ServiceVersionStatusBean;
 import io.apiman.manager.api.beans.services.UpdateServiceBean;
 import io.apiman.manager.api.beans.services.UpdateServiceVersionBean;
 import io.apiman.manager.api.beans.summary.ApiEntryBean;
@@ -92,7 +95,7 @@ import io.apiman.manager.api.beans.summary.ServiceVersionEndpointSummaryBean;
 import io.apiman.manager.api.beans.summary.ServiceVersionSummaryBean;
 import io.apiman.manager.api.core.IApiKeyGenerator;
 import io.apiman.manager.api.core.IApplicationValidator;
-import io.apiman.manager.api.core.IIdmStorage;
+import io.apiman.manager.api.core.IDownloadManager;
 import io.apiman.manager.api.core.IMetricsAccessor;
 import io.apiman.manager.api.core.IServiceValidator;
 import io.apiman.manager.api.core.IStorage;
@@ -118,6 +121,7 @@ import io.apiman.manager.api.rest.contract.exceptions.GatewayNotFoundException;
 import io.apiman.manager.api.rest.contract.exceptions.InvalidApplicationStatusException;
 import io.apiman.manager.api.rest.contract.exceptions.InvalidMetricCriteriaException;
 import io.apiman.manager.api.rest.contract.exceptions.InvalidNameException;
+import io.apiman.manager.api.rest.contract.exceptions.InvalidParameterException;
 import io.apiman.manager.api.rest.contract.exceptions.InvalidServiceStatusException;
 import io.apiman.manager.api.rest.contract.exceptions.InvalidVersionException;
 import io.apiman.manager.api.rest.contract.exceptions.NotAuthorizedException;
@@ -145,6 +149,7 @@ import io.apiman.manager.api.security.ISecurityContext;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
@@ -197,13 +202,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     private static final long ONE_MONTH_MILLIS = 30 * 24 * 60 * 60 * 1000;
 
     @Inject IStorage storage;
-    @Inject IIdmStorage idmStorage;
     @Inject IStorageQuery query;
     @Inject IMetricsAccessor metrics;
 
     @Inject IApplicationValidator applicationValidator;
     @Inject IServiceValidator serviceValidator;
     @Inject IApiKeyGenerator apiKeyGenerator;
+    
+    @Inject IDownloadManager downloadManager;
 
     @Inject IUserResource users;
     @Inject IRoleResource roles;
@@ -234,7 +240,7 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         criteria.setPageSize(100);
         criteria.addFilter("autoGrant", "true", SearchCriteriaFilterOperator.bool_eq); //$NON-NLS-1$ //$NON-NLS-2$
         try {
-            autoGrantedRoles = idmStorage.findRoles(criteria).getBeans();
+            autoGrantedRoles = query.findRoles(criteria).getBeans();
         } catch (StorageException e) {
             throw new SystemErrorException(e);
         }
@@ -261,7 +267,6 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             }
             storage.createOrganization(orgBean);
             storage.createAuditEntry(AuditUtils.organizationCreated(orgBean, securityContext));
-            storage.commitTx();
 
             // Auto-grant memberships in roles to the creator of the organization
             for (RoleBean roleBean : autoGrantedRoles) {
@@ -269,9 +274,9 @@ public class OrganizationResourceImpl implements IOrganizationResource {
                 String orgId = orgBean.getId();
                 RoleMembershipBean membership = RoleMembershipBean.create(currentUser, roleBean.getId(), orgId);
                 membership.setCreatedOn(new Date());
-                idmStorage.createMembership(membership);
+                storage.createMembership(membership);
             }
-
+            storage.commitTx();
             log.debug(String.format("Created organization %s: %s", orgBean.getName(), orgBean)); //$NON-NLS-1$
             return orgBean;
         } catch (AbstractRestException e) {
@@ -345,6 +350,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     @Override
     public SearchResultsBean<AuditEntryBean> activity(String organizationId, int page, int pageSize)
             throws OrganizationNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.orgView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -448,6 +455,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     @Override
     public SearchResultsBean<AuditEntryBean> getAppActivity(String organizationId, String applicationId,
             int page, int pageSize) throws ApplicationNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.appView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -635,6 +644,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     public SearchResultsBean<AuditEntryBean> getAppVersionActivity(String organizationId,
             String applicationId, String version, int page, int pageSize)
             throws ApplicationVersionNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.appView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -665,10 +676,19 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.appView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
-
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
         validateMetricRange(from, to);
+        
         return metrics.getAppUsagePerService(organizationId, applicationId, version, from, to);
     }
 
@@ -938,36 +958,82 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             throw new SystemErrorException(e);
         }
     }
-
+    
     /**
-     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryJSON(java.lang.String, java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryJSON(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
      */
     @Override
-    public ApiRegistryBean getApiRegistryJSON(String organizationId, String applicationId, String version)
-            throws ApplicationNotFoundException, NotAuthorizedException {
-        return getApiRegistry(organizationId, applicationId, version);
+    public Response getApiRegistryJSON(String organizationId, String applicationId, String version,
+            String download) throws ApplicationNotFoundException, NotAuthorizedException {
+        boolean hasPermission = securityContext.hasPermission(PermissionType.appView, organizationId);
+        if ("true".equals(download)) { //$NON-NLS-1$
+            try {
+                String path = String.format("%s/%s/%s/%s", organizationId, applicationId, version, (hasPermission ? '+' : '-' )); //$NON-NLS-1$
+                DownloadBean dbean = downloadManager.createDownload(DownloadType.apiRegistryJson, path);
+                return Response.ok(dbean, MediaType.APPLICATION_JSON).build();
+            } catch (StorageException e) {
+                throw new SystemErrorException(e);
+            }
+        } else {
+            return getApiRegistryJSON(organizationId, applicationId, version, hasPermission);
+        }
     }
-
+    
     /**
-     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryXML(java.lang.String, java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryJSON(java.lang.String, java.lang.String, java.lang.String, boolean)
      */
     @Override
-    public ApiRegistryBean getApiRegistryXML(String organizationId, String applicationId, String version)
-            throws ApplicationNotFoundException, NotAuthorizedException {
-        return getApiRegistry(organizationId, applicationId, version);
+    public Response getApiRegistryJSON(String organizationId, String applicationId, String version,
+            boolean hasPermission) throws ApplicationNotFoundException, NotAuthorizedException {
+        ApiRegistryBean apiRegistry = getApiRegistry(organizationId, applicationId, version, hasPermission);
+        return Response.ok(apiRegistry, MediaType.APPLICATION_JSON)
+                .header("Content-Disposition", "attachment; filename=api-registry.json") //$NON-NLS-1$ //$NON-NLS-2$
+                .build();
     }
-
+    
+    /**
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryXML(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+     */
+    @Override
+    public Response getApiRegistryXML(String organizationId, String applicationId, String version,
+            String download) throws ApplicationNotFoundException, NotAuthorizedException {
+        boolean hasPermission = securityContext.hasPermission(PermissionType.appView, organizationId);
+        if ("true".equals(download)) { //$NON-NLS-1$
+            try {
+                String path = String.format("%s/%s/%s/%s", organizationId, applicationId, version, (hasPermission ? '+' : '-' )); //$NON-NLS-1$
+                DownloadBean dbean = downloadManager.createDownload(DownloadType.apiRegistryXml, path);
+                return Response.ok(dbean, MediaType.APPLICATION_JSON).build();
+            } catch (StorageException e) {
+                throw new SystemErrorException(e);
+            }
+        } else {
+            return getApiRegistryXML(organizationId, applicationId, version, hasPermission);
+        }
+    }
+    
+    /**
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getApiRegistryXML(java.lang.String, java.lang.String, java.lang.String, boolean)
+     */
+    @Override
+    public Response getApiRegistryXML(String organizationId, String applicationId, String version,
+            boolean hasPermission) throws ApplicationNotFoundException, NotAuthorizedException {
+        ApiRegistryBean apiRegistry = getApiRegistry(organizationId, applicationId, version, hasPermission);
+        return Response.ok(apiRegistry, MediaType.APPLICATION_XML)
+                .header("Content-Disposition", "attachment; filename=api-registry.xml") //$NON-NLS-1$ //$NON-NLS-2$
+                .build();
+    }
+    
     /**
      * Gets the API registry.
      * @param organizationId
      * @param applicationId
      * @param version
+     * @param hasPermission
      * @throws ApplicationNotFoundException
      * @throws NotAuthorizedException
      */
-    protected ApiRegistryBean getApiRegistry(String organizationId, String applicationId, String version)
-            throws ApplicationNotFoundException, NotAuthorizedException {
-        boolean hasPermission = securityContext.hasPermission(PermissionType.appView, organizationId);
+    protected ApiRegistryBean getApiRegistry(String organizationId, String applicationId, String version,
+            boolean hasPermission) throws ApplicationNotFoundException, NotAuthorizedException {
         // Try to get the application first - will throw a ApplicationNotFoundException if not found.
         getAppVersion(organizationId, applicationId, version);
 
@@ -1264,6 +1330,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     @Override
     public SearchResultsBean<AuditEntryBean> getServiceActivity(String organizationId, String serviceId,
             int page, int pageSize) throws ServiceNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -1379,6 +1447,9 @@ public class OrganizationResourceImpl implements IOrganizationResource {
                 if (bean.getEndpointType() == null) {
                     updatedService.setEndpointType(cloneSource.getEndpointType());
                 }
+                if (bean.getEndpointContentType() == null) {
+                    updatedService.setEndpointContentType(cloneSource.getEndpointContentType());
+                }
                 updatedService.setEndpointProperties(cloneSource.getEndpointProperties());
                 updatedService.setGateways(cloneSource.getGateways());
                 if (bean.getPlans() == null) {
@@ -1451,6 +1522,7 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         newVersion.setService(service);
         newVersion.setEndpoint(bean.getEndpoint());
         newVersion.setEndpointType(bean.getEndpointType());
+        newVersion.setEndpointContentType(bean.getEndpointContentType());
         if (bean.getPublicService() != null) {
             newVersion.setPublicService(bean.getPublicService());
         }
@@ -1535,6 +1607,20 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             storage.rollbackTx();
             throw new SystemErrorException(e);
         }
+    }
+    
+    /**
+     * @see io.apiman.manager.api.rest.contract.IOrganizationResource#getServiceVersionStatus(java.lang.String, java.lang.String, java.lang.String)
+     */
+    @Override
+    public ServiceVersionStatusBean getServiceVersionStatus(String organizationId, String serviceId,
+            String version) throws ServiceVersionNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
+
+        ServiceVersionBean versionBean = getServiceVersion(organizationId, serviceId, version);
+        List<PolicySummaryBean> policies = listServicePolicies(organizationId, serviceId, version);
+        return serviceValidator.getStatus(versionBean, policies);
     }
 
     /**
@@ -1625,6 +1711,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     public SearchResultsBean<AuditEntryBean> getServiceVersionActivity(String organizationId,
             String serviceId, String version, int page, int pageSize) throws ServiceVersionNotFoundException,
             NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -1679,12 +1767,18 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             svb.getGateways().addAll(bean.getGateways());
         }
         if (AuditUtils.valueChanged(svb.getEndpoint(), bean.getEndpoint())) {
+            // validate the endpoint is a URL
+            validateEndpoint(bean.getEndpoint());
             data.addChange("endpoint", svb.getEndpoint(), bean.getEndpoint()); //$NON-NLS-1$
             svb.setEndpoint(bean.getEndpoint());
         }
         if (AuditUtils.valueChanged(svb.getEndpointType(), bean.getEndpointType())) {
             data.addChange("endpointType", svb.getEndpointType(), bean.getEndpointType()); //$NON-NLS-1$
             svb.setEndpointType(bean.getEndpointType());
+        }
+        if (AuditUtils.valueChanged(svb.getEndpointContentType(), bean.getEndpointContentType())) {
+            data.addChange("endpointContentType", svb.getEndpointContentType(), bean.getEndpointContentType()); //$NON-NLS-1$
+            svb.setEndpointContentType(bean.getEndpointContentType());
         }
         if (AuditUtils.valueChanged(svb.getEndpointProperties(), bean.getEndpointProperties())) {
             if (svb.getEndpointProperties() == null) {
@@ -2144,8 +2238,17 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
 
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
+        
         if (interval == null) {
             interval = HistogramIntervalType.day;
         }
@@ -2162,6 +2265,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             String fromDate, String toDate) throws NotAuthorizedException, InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2177,6 +2288,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             String fromDate, String toDate) throws NotAuthorizedException, InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2193,6 +2312,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             throws NotAuthorizedException, InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2213,6 +2340,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2229,6 +2364,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2245,6 +2388,14 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             InvalidMetricCriteriaException {
         if (!securityContext.hasPermission(PermissionType.svcView, organizationId))
             throw ExceptionFactory.notAuthorizedException();
+        
+        if (fromDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "fromDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
+        
+        if (toDate == null) {
+            throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("MissingOrInvalidParam", "toDate")); //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         DateTime from = parseFromDate(fromDate);
         DateTime to = parseToDate(toDate);
@@ -2331,6 +2482,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     @Override
     public SearchResultsBean<AuditEntryBean> getPlanActivity(String organizationId, String planId, int page, int pageSize)
             throws PlanNotFoundException, NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.planView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -2506,6 +2659,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
     public SearchResultsBean<AuditEntryBean> getPlanVersionActivity(String organizationId, String planId,
             String version, int page, int pageSize) throws PlanVersionNotFoundException,
             NotAuthorizedException {
+        if (!securityContext.hasPermission(PermissionType.planView, organizationId))
+            throw ExceptionFactory.notAuthorizedException();
         if (page <= 1) {
             page = 1;
         }
@@ -2796,20 +2951,16 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         MembershipData auditData = new MembershipData();
         auditData.setUserId(bean.getUserId());
         try {
+            storage.beginTx();
             for (String roleId : bean.getRoleIds()) {
                 RoleMembershipBean membership = RoleMembershipBean.create(bean.getUserId(), roleId, organizationId);
                 membership.setCreatedOn(new Date());
                 // If the membership already exists, that's fine!
-                if (idmStorage.getMembership(bean.getUserId(), roleId, organizationId) == null) {
-                    idmStorage.createMembership(membership);
+                if (storage.getMembership(bean.getUserId(), roleId, organizationId) == null) {
+                    storage.createMembership(membership);
                 }
                 auditData.addRole(roleId);
             }
-        } catch (StorageException e) {
-            throw new SystemErrorException(e);
-        }
-        try {
-            storage.beginTx();
             storage.createAuditEntry(AuditUtils.membershipGranted(organizationId, auditData, securityContext));
             storage.commitTx();
         } catch (AbstractRestException e) {
@@ -2836,28 +2987,20 @@ public class OrganizationResourceImpl implements IOrganizationResource {
 
         MembershipData auditData = new MembershipData();
         auditData.setUserId(userId);
-        boolean revoked = false;
+        
         try {
-            idmStorage.deleteMembership(userId, roleId, organizationId);
+            storage.beginTx();
+            storage.deleteMembership(userId, roleId, organizationId);
             auditData.addRole(roleId);
-            revoked = true;
-        } catch (StorageException e) {
+            storage.createAuditEntry(AuditUtils.membershipRevoked(organizationId, auditData, securityContext));
+            storage.commitTx();
+            log.debug(String.format("Revoked User %s Role %s Org %s", userId, roleId, organizationId)); //$NON-NLS-1$
+        } catch (AbstractRestException e) {
+            storage.rollbackTx();
+            throw e;
+        } catch (Exception e) {
+            storage.rollbackTx();
             throw new SystemErrorException(e);
-        }
-
-        if (revoked) {
-            try {
-                storage.beginTx();
-                storage.createAuditEntry(AuditUtils.membershipRevoked(organizationId, auditData, securityContext));
-                storage.commitTx();
-                log.debug(String.format("Revoked User %s Role %s Org %s", userId, roleId, organizationId)); //$NON-NLS-1$
-            } catch (AbstractRestException e) {
-                storage.rollbackTx();
-                throw e;
-            } catch (Exception e) {
-                storage.rollbackTx();
-                throw new SystemErrorException(e);
-            }
         }
     }
 
@@ -2872,17 +3015,12 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         get(organizationId);
         users.get(userId);
 
-        try {
-            idmStorage.deleteMemberships(userId, organizationId);
-        } catch (StorageException e) {
-            throw new SystemErrorException(e);
-        }
-
         MembershipData auditData = new MembershipData();
         auditData.setUserId(userId);
         auditData.addRole("*"); //$NON-NLS-1$
         try {
             storage.beginTx();
+            storage.deleteMemberships(userId, organizationId);
             storage.createAuditEntry(AuditUtils.membershipRevoked(organizationId, auditData, securityContext));
             storage.commitTx();
         } catch (AbstractRestException e) {
@@ -2903,12 +3041,13 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         get(organizationId);
 
         try {
-            Set<RoleMembershipBean> memberships = idmStorage.getOrgMemberships(organizationId);
+            Set<RoleMembershipBean> memberships = query.getOrgMemberships(organizationId);
             TreeMap<String, MemberBean> members = new TreeMap<>();
+            storage.beginTx();
             for (RoleMembershipBean membershipBean : memberships) {
                 String userId = membershipBean.getUserId();
                 String roleId = membershipBean.getRoleId();
-                RoleBean role = idmStorage.getRole(roleId);
+                RoleBean role = storage.getRole(roleId);
 
                 // Role does not exist!
                 if (role == null) {
@@ -2917,7 +3056,7 @@ public class OrganizationResourceImpl implements IOrganizationResource {
 
                 MemberBean member = members.get(userId);
                 if (member == null) {
-                    UserBean user = idmStorage.getUser(userId);
+                    UserBean user = storage.getUser(userId);
                     member = new MemberBean();
                     member.setEmail(user.getEmail());
                     member.setUserId(userId);
@@ -2936,6 +3075,8 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             return new ArrayList<>(members.values());
         } catch (StorageException e) {
             throw new SystemErrorException(e);
+        } finally {
+            storage.rollbackTx();
         }
     }
 
@@ -3031,20 +3172,6 @@ public class OrganizationResourceImpl implements IOrganizationResource {
      */
     public void setStorage(IStorage storage) {
         this.storage = storage;
-    }
-
-    /**
-     * @return the idmStorage
-     */
-    public IIdmStorage getIdmStorage() {
-        return idmStorage;
-    }
-
-    /**
-     * @param idmStorage the idmStorage to set
-     */
-    public void setIdmStorage(IIdmStorage idmStorage) {
-        this.idmStorage = idmStorage;
     }
 
     /**
@@ -3165,7 +3292,7 @@ public class OrganizationResourceImpl implements IOrganizationResource {
      */
     private DateTime parseFromDate(String fromDate) {
         // Default to the last 30 days
-        DateTime defaultFrom = DateTime.now().withZone(DateTimeZone.UTC).minusDays(30).withHourOfDay(0)
+        DateTime defaultFrom = new DateTime().withZone(DateTimeZone.UTC).minusDays(30).withHourOfDay(0)
                 .withMinuteOfHour(0).withSecondOfMinute(0).withMillisOfSecond(0);
         return parseDate(fromDate, defaultFrom, true);
     }
@@ -3176,7 +3303,7 @@ public class OrganizationResourceImpl implements IOrganizationResource {
      */
     private DateTime parseToDate(String toDate) {
         // Default to now
-        return parseDate(toDate, DateTime.now().withZone(DateTimeZone.UTC), false);
+        return parseDate(toDate, new DateTime().withZone(DateTimeZone.UTC), false);
     }
 
     /**
@@ -3187,10 +3314,10 @@ public class OrganizationResourceImpl implements IOrganizationResource {
      */
     private static DateTime parseDate(String dateStr, DateTime defaultDate, boolean floor) {
         if ("now".equals(dateStr)) { //$NON-NLS-1$
-            return DateTime.now();
+            return new DateTime();
         }
         if (dateStr.length() == 10) {
-            DateTime parsed = ISODateTimeFormat.date().withZoneUTC().parseDateTime(dateStr);
+            DateTime parsed = ISODateTimeFormat.date().withZone(DateTimeZone.UTC).parseDateTime(dateStr);
             // If what we want is the floor, then just return it.  But if we want the
             // ceiling of the date, then we need to set the right params.
             if (!floor) {
@@ -3199,10 +3326,10 @@ public class OrganizationResourceImpl implements IOrganizationResource {
             return parsed;
         }
         if (dateStr.length() == 20) {
-            return ISODateTimeFormat.dateTimeNoMillis().withZoneUTC().parseDateTime(dateStr);
+            return ISODateTimeFormat.dateTimeNoMillis().withZone(DateTimeZone.UTC).parseDateTime(dateStr);
         }
         if (dateStr.length() == 24) {
-            return ISODateTimeFormat.dateTime().withZoneUTC().parseDateTime(dateStr);
+            return ISODateTimeFormat.dateTime().withZone(DateTimeZone.UTC).parseDateTime(dateStr);
         }
         return defaultDate;
     }
@@ -3251,6 +3378,18 @@ public class OrganizationResourceImpl implements IOrganizationResource {
         long totalDataPoints = millis / divBy;
         if (totalDataPoints > 5000) {
             throw ExceptionFactory.invalidMetricCriteriaException(Messages.i18n.format("OrganizationResourceImpl.MetricDataSetTooLarge")); //$NON-NLS-1$
+        }
+    }
+
+    /**
+     * Make sure we've got a valid URL.
+     * @param endpoint
+     */
+    private void validateEndpoint(String endpoint) {
+        try {
+            new URL(endpoint);
+        } catch (MalformedURLException e) {
+            throw new InvalidParameterException(Messages.i18n.format("OrganizationResourceImpl.InvalidEndpointURL")); //$NON-NLS-1$
         }
     }
 

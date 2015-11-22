@@ -1,5 +1,14 @@
 language: java
 
+cache:
+  directories:
+    - "$HOME/.tsd-cache"
+    - "manager/ui/hawtio/node_modules"
+    - "$HOME/.m2"
+
+before_cache:
+  - "rm -rf $HOME/.m2/repository/io/apiman"
+
 services:
   - elasticsearch
 
@@ -23,13 +32,9 @@ notifications:
 
 matrix:
   include:
-    - env: ACTION='-Dapiman.gateway-test.config=vertx3-mem'
+    - env: ACTION='-Dapiman-test.type=es -Dapiman.gateway-test.config=servlet-es'
       jdk: oraclejdk8
-    - env: ACTION='-Dapiman.gateway-test.config=vertx3-es'
-      jdk: oraclejdk8
-    - env: ACTION='-Dapiman.gateway-test.config=servlet-es'
-      jdk: oraclejdk8
-    - env: ACTION='-Dapiman.gateway-test.config=servlet-es'
+    - env: ACTION='-Dapiman-test.type=es -Dapiman.gateway-test.config=servlet-es'
       jdk: oraclejdk7
 
 install: travis_retry mvn clean install -Dinvoker.skip -Dmaven.javadoc.skip=true | egrep -v 'Download|\\[exec\\] [[:digit:]]+/[[:digit:]]+|^[[:space:]]*\\[exec\\][[:space:]]*$' ; [ ${PIPESTATUS[0]} == 0 ];

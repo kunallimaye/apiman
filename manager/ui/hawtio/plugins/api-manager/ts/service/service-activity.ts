@@ -13,6 +13,7 @@ module Apiman {
             
             var getNextPage = function(successHandler, errorHandler) {
                 $scope.currentPage = $scope.currentPage + 1;
+
                 AuditSvcs.get({ organizationId: params.org, entityType: 'services', entityId: params.service, page: $scope.currentPage, count: 20 }, function(results) {
                     var entries = results.beans;
                     successHandler(entries);
@@ -20,6 +21,7 @@ module Apiman {
             };
              
             var pageData = ServiceEntityLoader.getCommonData($scope, $location);
+
             pageData = angular.extend(pageData, {
                 auditEntries: $q(function(resolve, reject) {
                     $scope.currentPage = 0;
@@ -28,7 +30,8 @@ module Apiman {
             });
             
             $scope.getNextPage = getNextPage;
-            PageLifecycle.loadPage('ServiceActivity', pageData, $scope, function() {
+
+            PageLifecycle.loadPage('ServiceActivity', 'svcView', pageData, $scope, function() {
                 PageLifecycle.setPageTitle('service-activity', [ $scope.service.name ]);
             });
         }])

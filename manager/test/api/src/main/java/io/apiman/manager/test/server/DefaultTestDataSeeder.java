@@ -16,9 +16,10 @@
 package io.apiman.manager.test.server;
 
 import io.apiman.manager.api.beans.idm.UserBean;
-import io.apiman.manager.api.core.IIdmStorage;
 import io.apiman.manager.api.core.IStorage;
 import io.apiman.manager.api.core.exceptions.StorageException;
+
+import java.util.Date;
 
 /**
  * Default seeder used by tests.
@@ -28,20 +29,21 @@ import io.apiman.manager.api.core.exceptions.StorageException;
 public class DefaultTestDataSeeder implements ISeeder {
     
     /**
-     * @see io.apiman.manager.test.server.ISeeder#seed(io.apiman.manager.api.core.IIdmStorage, io.apiman.manager.api.core.IStorage)
+     * @see io.apiman.manager.test.server.ISeeder#seed(io.apiman.manager.api.core.IStorage)
      */
     @SuppressWarnings("nls")
     @Override
-    public void seed(IIdmStorage idmStorage, IStorage storage) throws StorageException {
+    public void seed(IStorage storage) throws StorageException {
         for (String [] userInfo : TestUsers.USERS) {
             UserBean userBean = new UserBean();
             userBean.setUsername(userInfo[0]);
             userBean.setFullName(userInfo[2]);
             userBean.setEmail(userInfo[3]);
+            userBean.setJoinedOn(new Date());
             if ("true".equals(System.getProperty("apiman.test.admin-user-only", "false")) && !userBean.getUsername().equals("admin")) {
                 continue;
             }
-            idmStorage.createUser(userBean);
+            storage.createUser(userBean);
         }
     }
 

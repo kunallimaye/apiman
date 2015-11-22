@@ -1,4 +1,5 @@
 /// <reference path="../../includes.ts"/>
+
 module Apiman {
 
     _module.directive('apimanActionBtn',
@@ -29,6 +30,29 @@ module Apiman {
             };
         }]);
 
+    _module.directive('apimanApiModal',
+        ['Logger', function(Logger) {
+            return {
+                templateUrl: 'plugins/api-manager/html/app/apiModal.html',
+                replace: true,
+                restrict: 'E',
+                link: function(scope, element, attrs) {
+                    $(element).on('hidden.bs.modal', function() {
+                        $(element).remove();
+                    });
+
+                    // Called if copy-to-clipboard functionality was successful
+                    scope.copySuccess = function () {
+                        console.log('Copied!');
+                    };
+
+                    // Called if copy-to-clipboard functionality was unsuccessful
+                    scope.copyFail = function (err) {
+                        //console.error('Error!', err);
+                    };
+                }
+            };
+        }]);
 
     _module.directive('apimanSelectPicker',
         ['Logger', '$timeout', '$parse', 'TranslationService',
@@ -118,6 +142,7 @@ module Apiman {
                     }, function(newValue, oldValue) {
                         var entityStatus = newValue;
                         var elem = element;
+
                         if (entityStatus) {
                             var validStatuses = attrs.apimanStatus.split(',');
                             var statusIsValid = false;
@@ -158,7 +183,7 @@ module Apiman {
         }]);
 
     _module.directive('apimanEntityStatus',
-        ['Logger', 'EntityStatusService', 
+        ['Logger', 'EntityStatusService',
         function(Logger, EntityStatusService) {
             return {
                 restrict: 'A',
@@ -186,6 +211,7 @@ module Apiman {
         }]);
 
     export var sb_counter = 0;
+
     _module.directive('apimanSearchBox',
         ['Logger', 'TranslationService', 
         function(Logger, TranslationService) {
@@ -248,6 +274,25 @@ module Apiman {
                 transclude: true,
                 link: function(scope, element, attrs) {
                     scope.title = attrs.modalTitle;
+
+                    $(element).on('hidden.bs.modal', function() {
+                        $(element).remove();
+                    });
+                }
+            };
+        }]);
+    
+    _module.directive('apimanGetvalueModal',
+        ['Logger', 
+        function(Logger) {
+            return {
+                templateUrl: 'plugins/api-manager/html/directives/getvalueModal.html',
+                replace: true,
+                restrict: 'E',
+                transclude: true,
+                link: function(scope, element, attrs) {
+                    scope.title = attrs.modalTitle;
+
                     $(element).on('hidden.bs.modal', function() {
                         $(element).remove();
                     });
@@ -550,4 +595,27 @@ module Apiman {
             };
         }]);
 
+    _module.directive('clickOutside', function ($parse, $timeout) {
+        return {
+            link: function (scope, element, attrs: any) {
+                function handler(event) {
+                    if(!$(event.target).closest(element).length) {
+                        scope.$apply(function () {
+                            $parse(attrs.clickOutside)(scope);
+                        });
+                    }
+                }
+
+                $timeout(function () {
+                    // Timeout is to prevent the click handler from immediately
+                    // firing upon opening the popover.
+                    $(document).on('click', handler);
+                });
+
+                scope.$on('$destroy', function () {
+                    $(document).off('click', handler);
+                });
+            }
+        }
+    });
 }

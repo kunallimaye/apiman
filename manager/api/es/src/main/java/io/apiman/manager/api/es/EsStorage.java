@@ -20,6 +20,7 @@ import io.apiman.manager.api.beans.apps.ApplicationVersionBean;
 import io.apiman.manager.api.beans.audit.AuditEntityType;
 import io.apiman.manager.api.beans.audit.AuditEntryBean;
 import io.apiman.manager.api.beans.contracts.ContractBean;
+import io.apiman.manager.api.beans.download.DownloadBean;
 import io.apiman.manager.api.beans.gateways.GatewayBean;
 import io.apiman.manager.api.beans.idm.PermissionBean;
 import io.apiman.manager.api.beans.idm.PermissionType;
@@ -58,7 +59,6 @@ import io.apiman.manager.api.beans.summary.PolicySummaryBean;
 import io.apiman.manager.api.beans.summary.ServicePlanSummaryBean;
 import io.apiman.manager.api.beans.summary.ServiceSummaryBean;
 import io.apiman.manager.api.beans.summary.ServiceVersionSummaryBean;
-import io.apiman.manager.api.core.IIdmStorage;
 import io.apiman.manager.api.core.IStorage;
 import io.apiman.manager.api.core.IStorageQuery;
 import io.apiman.manager.api.core.exceptions.StorageException;
@@ -76,9 +76,12 @@ import io.searchbox.core.Index;
 import io.searchbox.core.Search;
 import io.searchbox.core.SearchResult;
 import io.searchbox.core.SearchResult.Hit;
+import io.searchbox.core.SearchScroll;
+import io.searchbox.core.SearchScroll.Builder;
 import io.searchbox.indices.CreateIndex;
 import io.searchbox.indices.IndicesExists;
 import io.searchbox.params.Parameters;
+import io.searchbox.params.SearchType;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -87,6 +90,7 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -112,6 +116,8 @@ import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 
+import com.google.gson.Gson;
+
 /**
  * An implementation of the API Manager persistence layer that uses git to store
  * the entities.
@@ -119,7 +125,7 @@ import org.elasticsearch.search.sort.SortOrder;
  * @author eric.wittmann@redhat.com
  */
 @ApplicationScoped @Alternative
-public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
+public class EsStorage implements IStorage, IStorageQuery {
 
     private static final String INDEX_NAME = "apiman_manager"; //$NON-NLS-1$
 
@@ -363,6 +369,14 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
+     * @see io.apiman.manager.api.core.IStorage#createDownload(io.apiman.manager.api.beans.download.DownloadBean)
+     */
+    @Override
+    public void createDownload(DownloadBean download) throws StorageException {
+        indexEntity("download", download.getId(), EsMarshalling.marshall(download)); //$NON-NLS-1$
+    }
+
+    /**
      * @see io.apiman.manager.api.core.IStorage#createPolicyDefinition(io.apiman.manager.api.beans.policies.PolicyDefinitionBean)
      */
     @Override
@@ -371,7 +385,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#createRole(io.apiman.manager.api.beans.idm.RoleBean)
+     * @see io.apiman.manager.api.core.IStorage#createRole(io.apiman.manager.api.beans.idm.RoleBean)
      */
     @Override
     public void createRole(RoleBean role) throws StorageException {
@@ -536,7 +550,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#updateRole(io.apiman.manager.api.beans.idm.RoleBean)
+     * @see io.apiman.manager.api.core.IStorage#updateRole(io.apiman.manager.api.beans.idm.RoleBean)
      */
     @Override
     public void updateRole(RoleBean role) throws StorageException {
@@ -667,6 +681,14 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
+     * @see io.apiman.manager.api.core.IStorage#deleteDownload(io.apiman.manager.api.beans.download.DownloadBean)
+     */
+    @Override
+    public void deleteDownload(DownloadBean download) throws StorageException {
+        deleteEntity("download", download.getId()); //$NON-NLS-1$
+    }
+
+    /**
      * @see io.apiman.manager.api.core.IStorage#deletePolicyDefinition(io.apiman.manager.api.beans.policies.PolicyDefinitionBean)
      */
     @Override
@@ -675,7 +697,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /* (non-Javadoc)
-     * @see io.apiman.manager.api.core.IIdmStorage#deleteRole(io.apiman.manager.api.beans.idm.RoleBean)
+     * @see io.apiman.manager.api.core.IStorage#deleteRole(io.apiman.manager.api.beans.idm.RoleBean)
      */
     @Override
     public void deleteRole(RoleBean role) throws StorageException {
@@ -860,6 +882,15 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
+     * @see io.apiman.manager.api.core.IStorage#getDownload(java.lang.String)
+     */
+    @Override
+    public DownloadBean getDownload(String id) throws StorageException {
+        Map<String, Object> source = getEntity("download", id); //$NON-NLS-1$
+        return EsMarshalling.unmarshallDownload(source);
+    }
+
+    /**
      * @see io.apiman.manager.api.core.IStorage#getPlugin(long)
      */
     @Override
@@ -909,7 +940,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getRole(java.lang.String)
+     * @see io.apiman.manager.api.core.IStorage#getRole(java.lang.String)
      */
     @Override
     public RoleBean getRole(String id) throws StorageException {
@@ -925,8 +956,16 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
         @SuppressWarnings("nls")
         String[] fields = {"id", "artifactId", "groupId", "version", "classifier", "type", "name",
             "description", "createdBy", "createdOn"};
+
+        @SuppressWarnings("nls")
+        QueryBuilder query = QueryBuilders.filteredQuery(
+            QueryBuilders.matchAllQuery(),
+            FilterBuilders.orFilter(
+                    FilterBuilders.missingFilter("deleted"),
+                    FilterBuilders.termFilter("deleted", false))
+        );
         SearchSourceBuilder builder = new SearchSourceBuilder()
-                .fetchSource(fields, null).sort("name.raw", SortOrder.ASC).size(200); //$NON-NLS-1$
+                .fetchSource(fields, null).query(query).sort("name.raw", SortOrder.ASC).size(200); //$NON-NLS-1$
         List<Hit<Map<String,Object>,Void>> hits = listEntities("plugin", builder); //$NON-NLS-1$
         List<PluginSummaryBean> rval = new ArrayList<>(hits.size());
         for (Hit<Map<String,Object>,Void> hit : hits) {
@@ -1417,8 +1456,16 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     public List<PolicyDefinitionSummaryBean> listPolicyDefinitions() throws StorageException {
         @SuppressWarnings("nls")
         String[] fields = {"id", "policyImpl", "name", "description", "icon", "pluginId", "formType"};
+        @SuppressWarnings("nls")
+        QueryBuilder query = QueryBuilders.filteredQuery(
+            QueryBuilders.matchAllQuery(),
+            FilterBuilders.orFilter(
+                    FilterBuilders.missingFilter("deleted"),
+                    FilterBuilders.termFilter("deleted", false))
+        );
         SearchSourceBuilder builder = new SearchSourceBuilder()
                 .fetchSource(fields, null)
+                .query(query)
                 .sort("name.raw", SortOrder.ASC).size(100); //$NON-NLS-1$
         List<Hit<Map<String,Object>,Void>> hits = listEntities("policyDef", builder); //$NON-NLS-1$
         List<PolicyDefinitionSummaryBean> rval = new ArrayList<>(hits.size());
@@ -1492,7 +1539,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#createUser(io.apiman.manager.api.beans.idm.UserBean)
+     * @see io.apiman.manager.api.core.IStorage#createUser(io.apiman.manager.api.beans.idm.UserBean)
      */
     @Override
     public void createUser(UserBean user) throws StorageException {
@@ -1500,7 +1547,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getUser(java.lang.String)
+     * @see io.apiman.manager.api.core.IStorage#getUser(java.lang.String)
      */
     @Override
     public UserBean getUser(String userId) throws StorageException {
@@ -1509,7 +1556,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#updateUser(io.apiman.manager.api.beans.idm.UserBean)
+     * @see io.apiman.manager.api.core.IStorage#updateUser(io.apiman.manager.api.beans.idm.UserBean)
      */
     @Override
     public void updateUser(UserBean user) throws StorageException {
@@ -1517,7 +1564,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#findUsers(io.apiman.manager.api.beans.search.SearchCriteriaBean)
+     * @see io.apiman.manager.api.core.IStorageQuery#findUsers(io.apiman.manager.api.beans.search.SearchCriteriaBean)
      */
     @Override
     public SearchResultsBean<UserBean> findUsers(SearchCriteriaBean criteria) throws StorageException {
@@ -1530,7 +1577,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#findRoles(io.apiman.manager.api.beans.search.SearchCriteriaBean)
+     * @see io.apiman.manager.api.core.IStorageQuery#findRoles(io.apiman.manager.api.beans.search.SearchCriteriaBean)
      */
     @Override
     public SearchResultsBean<RoleBean> findRoles(SearchCriteriaBean criteria) throws StorageException {
@@ -1543,7 +1590,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#createMembership(io.apiman.manager.api.beans.idm.RoleMembershipBean)
+     * @see io.apiman.manager.api.core.IStorage#createMembership(io.apiman.manager.api.beans.idm.RoleMembershipBean)
      */
     @Override
     public void createMembership(RoleMembershipBean membership) throws StorageException {
@@ -1553,7 +1600,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getMembership(java.lang.String, java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.core.IStorage#getMembership(java.lang.String, java.lang.String, java.lang.String)
      */
     @Override
     public RoleMembershipBean getMembership(String userId, String roleId, String organizationId) throws StorageException {
@@ -1567,7 +1614,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#deleteMembership(java.lang.String, java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.core.IStorage#deleteMembership(java.lang.String, java.lang.String, java.lang.String)
      */
     @Override
     public void deleteMembership(String userId, String roleId, String organizationId) throws StorageException {
@@ -1576,7 +1623,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#deleteMemberships(java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.core.IStorage#deleteMemberships(java.lang.String, java.lang.String)
      */
     @Override
     @SuppressWarnings("nls")
@@ -1606,7 +1653,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getUserMemberships(java.lang.String)
+     * @see io.apiman.manager.api.core.IStorageQuery#getUserMemberships(java.lang.String)
      */
     @Override
     public Set<RoleMembershipBean> getUserMemberships(String userId) throws StorageException {
@@ -1630,7 +1677,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getUserMemberships(java.lang.String, java.lang.String)
+     * @see io.apiman.manager.api.core.IStorageQuery#getUserMemberships(java.lang.String, java.lang.String)
      */
     @Override
     public Set<RoleMembershipBean> getUserMemberships(String userId, String organizationId)
@@ -1658,7 +1705,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getOrgMemberships(java.lang.String)
+     * @see io.apiman.manager.api.core.IStorageQuery#getOrgMemberships(java.lang.String)
      */
     @Override
     public Set<RoleMembershipBean> getOrgMemberships(String organizationId) throws StorageException {
@@ -1682,7 +1729,7 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
     }
 
     /**
-     * @see io.apiman.manager.api.core.IIdmStorage#getPermissions(java.lang.String)
+     * @see io.apiman.manager.api.core.IStorageQuery#getPermissions(java.lang.String)
      */
     @Override
     public Set<PermissionBean> getPermissions(String userId) throws StorageException {
@@ -1961,6 +2008,332 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
         return organizationId + ':' + entityId + ':' + version;
     }
 
+    @Override
+    public Iterator<OrganizationBean> getAllOrganizations() throws StorageException {
+        return getAll("organization", new IUnmarshaller<OrganizationBean>() { //$NON-NLS-1$
+            @Override
+            public OrganizationBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallOrganization(source);
+            }
+        });
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllPlans(java.lang.String)
+     */
+    @Override
+    public Iterator<PlanBean> getAllPlans(String organizationId) throws StorageException {
+        return getAll("plan", new IUnmarshaller<PlanBean>() { //$NON-NLS-1$
+            @Override
+            public PlanBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallPlan(source);
+            }
+        }, matchOrgQuery(organizationId));
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllApplications(java.lang.String)
+     */
+    @Override
+    public Iterator<ApplicationBean> getAllApplications(String organizationId) throws StorageException {
+        return getAll("application", new IUnmarshaller<ApplicationBean>() { //$NON-NLS-1$
+            @Override
+            public ApplicationBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallApplication(source);
+            }
+        }, matchOrgQuery(organizationId));
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllServices(java.lang.String)
+     */
+    @Override
+    public Iterator<ServiceBean> getAllServices(String organizationId) throws StorageException {
+        return getAll("service", new IUnmarshaller<ServiceBean>() { //$NON-NLS-1$
+            @Override
+            public ServiceBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallService(source);
+            }
+        }, matchOrgQuery(organizationId));
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllPlanVersions(java.lang.String, java.lang.String)
+     */
+    @SuppressWarnings("nls")
+    @Override
+    public Iterator<PlanVersionBean> getAllPlanVersions(String organizationId, String planId)
+            throws StorageException {
+        String query = "{" +
+                "  \"query\": {" +
+                "    \"filtered\": { " +
+                "      \"filter\": {" +
+                "        \"and\" : [" +
+                "          {" +
+                "            \"term\": { \"organizationId\": \"" + organizationId + "\" }" +
+                "          }," +
+                "          {" +
+                "            \"term\": { \"planId\": \"" + planId + "\" }" +
+                "          }" +
+                "      ]" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+        return getAll("planVersion", new IUnmarshaller<PlanVersionBean>() { //$NON-NLS-1$
+            @Override
+            public PlanVersionBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallPlanVersion(source);
+            }
+        }, query);
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllServiceVersions(java.lang.String, java.lang.String)
+     */
+    @SuppressWarnings("nls")
+    @Override
+    public Iterator<ServiceVersionBean> getAllServiceVersions(String organizationId, String serviceId)
+            throws StorageException {
+        String query = "{" +
+                "  \"query\": {" +
+                "    \"filtered\": { " +
+                "      \"filter\": {" +
+                "        \"and\" : [" +
+                "          {" +
+                "            \"term\": { \"organizationId\": \"" + organizationId + "\" }" +
+                "          }," +
+                "          {" +
+                "            \"term\": { \"serviceId\": \"" + serviceId + "\" }" +
+                "          }" +
+                "      ]" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+        return getAll("serviceVersion", new IUnmarshaller<ServiceVersionBean>() { //$NON-NLS-1$
+            @Override
+            public ServiceVersionBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallServiceVersion(source);
+            }
+        }, query);
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllApplicationVersions(java.lang.String, java.lang.String)
+     */
+    @SuppressWarnings("nls")
+    @Override
+    public Iterator<ApplicationVersionBean> getAllApplicationVersions(String organizationId,
+            String applicationId) throws StorageException {
+        String query = "{" +
+                "  \"query\": {" +
+                "    \"filtered\": { " +
+                "      \"filter\": {" +
+                "        \"and\" : [" +
+                "          {" +
+                "            \"term\": { \"organizationId\": \"" + organizationId + "\" }" +
+                "          }," +
+                "          {" +
+                "            \"term\": { \"applicationId\": \"" + applicationId + "\" }" +
+                "          }" +
+                "      ]" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+        return getAll("applicationVersion", new IUnmarshaller<ApplicationVersionBean>() { //$NON-NLS-1$
+            @Override
+            public ApplicationVersionBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallApplicationVersion(source);
+            }
+        }, query);
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllContracts(java.lang.String, java.lang.String, java.lang.String)
+     */
+    @SuppressWarnings("nls")
+    @Override
+    public Iterator<ContractBean> getAllContracts(String organizationId, String applicationId, String version)
+            throws StorageException {
+        String query = "{" +
+                "  \"query\": {" +
+                "    \"filtered\": {" +
+                "      \"filter\": {" +
+                "        \"and\" : [" +
+                "          {" +
+                "            \"term\": { \"appOrganizationId\": \"" + organizationId + "\" }" +
+                "          }," +
+                "          {" +
+                "            \"term\": { \"appId\": \"" + applicationId + "\" }" +
+                "          }," +
+                "          {" +
+                "            \"term\": { \"appVersion\": \"" + version + "\" }" +
+                "          }" +
+                "      ]" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+        return getAll("contract", new IUnmarshaller<ContractBean>() { //$NON-NLS-1$
+            @Override
+            public ContractBean unmarshal(Map<String, Object> source) {
+                ContractBean contract = EsMarshalling.unmarshallContract(source);
+                String svcOrgId = (String) source.get("serviceOrganizationId");
+                String svcId = (String) source.get("serviceId");
+                String svcVersion = (String) source.get("serviceVersion");
+                String planId = (String) source.get("planId");
+                String planVersion = (String) source.get("planVersion");
+
+                ServiceVersionBean svb = new ServiceVersionBean();
+                svb.setVersion(svcVersion);
+                svb.setService(new ServiceBean());
+                svb.getService().setOrganization(new OrganizationBean());
+                svb.getService().setId(svcId);
+                svb.getService().getOrganization().setId(svcOrgId);
+
+                PlanVersionBean pvb = new PlanVersionBean();
+                pvb.setVersion(planVersion);
+                pvb.setPlan(new PlanBean());
+                pvb.getPlan().setOrganization(new OrganizationBean());
+                pvb.getPlan().setId(planId);
+                pvb.getPlan().getOrganization().setId(svcOrgId);
+
+                contract.setPlan(pvb);
+                contract.setService(svb);
+                return contract;
+            }
+        }, query);
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllPolicies(java.lang.String, java.lang.String, java.lang.String, io.apiman.manager.api.beans.policies.PolicyType)
+     */
+    @Override
+    public Iterator<PolicyBean> getAllPolicies(String organizationId, String entityId, String version,
+            PolicyType type) throws StorageException {
+        try {
+            String docType = getPoliciesDocType(type);
+            String pid = id(organizationId, entityId, version);
+            Map<String, Object> source = getEntity(docType, pid);
+            PoliciesBean policies = EsMarshalling.unmarshallPolicies(source);
+            if (policies == null || policies.getPolicies() == null) {
+                return new ArrayList<PolicyBean>().iterator();
+            }
+            List<PolicyBean> policyBeans = policies.getPolicies();
+            // TODO resolve the policy def, since we know we'll only have the definition ID here
+            for (PolicyBean policyBean : policyBeans) {
+                PolicyDefinitionBean def = getPolicyDefinition(policyBean.getDefinition().getId());
+                if (def != null) {
+                    policyBean.setDefinition(def);
+                }
+            }
+            return policyBeans.iterator();
+        } catch (Exception e) {
+            throw new StorageException(e);
+        }
+    }
+
+    @Override
+    public Iterator<GatewayBean> getAllGateways() throws StorageException {
+        return getAll("gateway", new IUnmarshaller<GatewayBean>() { //$NON-NLS-1$
+            @Override
+            public GatewayBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallGateway(source);
+            }
+        });
+    }
+
+    @Override
+    public Iterator<UserBean> getAllUsers() throws StorageException {
+        return getAll("user", new IUnmarshaller<UserBean>() { //$NON-NLS-1$
+            @Override
+            public UserBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallUser(source);
+            }
+        });
+    }
+
+    @Override
+    public Iterator<RoleBean> getAllRoles() throws StorageException {
+        return getAll("role", new IUnmarshaller<RoleBean>() { //$NON-NLS-1$
+            @Override
+            public RoleBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallRole(source);
+            }
+        });
+    }
+
+    @Override
+    public Iterator<RoleMembershipBean> getAllMemberships(String organizationId) throws StorageException {
+        return getAll("roleMembership", new IUnmarshaller<RoleMembershipBean>() { //$NON-NLS-1$
+            @Override
+            public RoleMembershipBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallRoleMembership(source);
+            }
+        }, matchOrgQuery(organizationId));
+    }
+
+    @Override
+    public Iterator<AuditEntryBean> getAllAuditEntries(String organizationId) throws StorageException {
+        return getAll("auditEntry", new IUnmarshaller<AuditEntryBean>() { //$NON-NLS-1$
+            @Override
+            public AuditEntryBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallAuditEntry(source);
+            }
+        }, matchOrgQuery(organizationId));
+    }
+
+    @Override
+    public Iterator<PluginBean> getAllPlugins() throws StorageException {
+        return getAll("plugin", new IUnmarshaller<PluginBean>() { //$NON-NLS-1$
+            @Override
+            public PluginBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallPlugin(source);
+            }
+        });
+    }
+
+    /**
+     * @see io.apiman.manager.api.core.IStorage#getAllPolicyDefinitions()
+     */
+    @Override
+    public Iterator<PolicyDefinitionBean> getAllPolicyDefinitions() throws StorageException {
+        return getAll("policyDef", new IUnmarshaller<PolicyDefinitionBean>() { //$NON-NLS-1$
+            @Override
+            public PolicyDefinitionBean unmarshal(Map<String, Object> source) {
+                return EsMarshalling.unmarshallPolicyDefinition(source);
+            }
+        });
+    }
+
+    /**
+     * Returns an iterator over all instances of the given entity type.
+     * @param entityType
+     * @param unmarshaller
+     * @throws StorageException
+     */
+    private <T> Iterator<T> getAll(String entityType, IUnmarshaller<T> unmarshaller) throws StorageException {
+        String query = matchAllQuery();
+        return getAll(entityType, unmarshaller, query);
+    }
+
+    /**
+     * Returns an iterator over all instances of the given entity type.
+     * @param entityType
+     * @param unmarshaller
+     * @param query
+     * @throws StorageException
+     */
+    private <T> Iterator<T> getAll(String entityType, IUnmarshaller<T> unmarshaller, String query) throws StorageException {
+        return new EntityIterator<>(entityType, unmarshaller, query);
+    }
+
+    /**
+     * A simple, internal unmarshaller interface.
+     * @author eric.wittmann@redhat.com
+     */
     private static interface IUnmarshaller<T> {
         /**
          * Unmarshal the source map into an entity.
@@ -1969,4 +2342,123 @@ public class EsStorage implements IStorage, IStorageQuery, IIdmStorage {
          */
         public T unmarshal(Map<String, Object> source);
     }
+
+    /**
+     * Allows iterating over all entities of a given type.
+     * @author eric.wittmann@redhat.com
+     */
+    @SuppressWarnings("nls")
+    private class EntityIterator<T> implements Iterator<T> {
+
+        private String query;
+        private String entityType;
+        private IUnmarshaller<T> unmarshaller;
+        private String scrollId = null;
+        private List<Hit<Map<String, Object>, Void>> hits;
+        private int nextHitIdx;;
+
+        /**
+         * Constructor.
+         * @param entityType
+         * @param unmarshaller
+         * @param query
+         * @throws StorageException
+         */
+        public EntityIterator(String entityType, IUnmarshaller<T> unmarshaller, String query) throws StorageException {
+            this.entityType = entityType;
+            this.unmarshaller = unmarshaller;
+            this.query = query;
+            initScroll();
+            this.nextHitIdx = 0;
+        }
+
+        /**
+         * @see java.util.Iterator#hasNext()
+         */
+        @Override
+        public boolean hasNext() {
+            if (hits == null || this.nextHitIdx >= hits.size()) {
+                try {
+                    fetch();
+                } catch (StorageException e) {
+                    throw new RuntimeException(e);
+                }
+                this.nextHitIdx = 0;
+            }
+            return hits.size() > 0;
+        }
+
+        /**
+         * @see java.util.Iterator#next()
+         */
+        @Override
+        public T next() {
+            Hit<Map<String, Object>, Void> hit = hits.get(nextHitIdx++);
+            return unmarshaller.unmarshal(hit.source);
+        }
+
+        /**
+         * @see java.util.Iterator#remove()
+         */
+        @Override
+        public void remove() {
+            // Not implemented.
+        }
+
+        private void initScroll() throws StorageException {
+            try {
+                Search search = new Search.Builder(query).addIndex(INDEX_NAME).addType(entityType)
+                        .setSearchType(SearchType.SCAN).setParameter(Parameters.SCROLL, "1m").build();
+                SearchResult response = esClient.execute(search);
+                scrollId = response.getJsonObject().get("_scroll_id").getAsString();
+            } catch (IOException e) {
+                throw new StorageException(e);
+            }
+        }
+
+        private void fetch() throws StorageException {
+            try {
+                Builder builder = new SearchScroll.Builder(scrollId, "1m")
+                        .setParameter(Parameters.SIZE, 1);
+                SearchScroll scroll = new SearchScroll(builder) {
+                    @Override
+                    public JestResult createNewElasticSearchResult(String responseBody, int statusCode,
+                            String reasonPhrase, Gson gson) {
+                        return createNewElasticSearchResult(new SearchResult(gson), responseBody, statusCode, reasonPhrase, gson);
+                    }
+                };
+                SearchResult response = (SearchResult) esClient.execute(scroll);
+                this.hits = (List) response.getHits(Map.class);
+            } catch (IOException e) {
+                throw new StorageException(e);
+            }
+        }
+
+    }
+
+    /**
+     * @return an ES query to match all documents
+     */
+    @SuppressWarnings("nls")
+    private String matchAllQuery() {
+        return "{" +
+                "  \"query\": {" +
+                "    \"match_all\": {}" +
+                "  }" +
+                "}";
+    }
+
+    @SuppressWarnings("nls")
+    private String matchOrgQuery(String organizationId) {
+        return "{" +
+                "  \"query\": {" +
+                "    \"filtered\": { " +
+                "      \"filter\": {" +
+                "        \"term\": { \"organizationId\": \"" + organizationId + "\" }" +
+                "      }" +
+                "    }" +
+                "  }" +
+                "}";
+    }
+
 }

@@ -3,12 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
-    <script type="text/javascript" src="site.js"></script>
   </head>
 
   <body>
-    <div ng-include="'plugins/api-manager/html/progress.include'"></div>
-    <div id="apiman-header" ng-include="'plugins/api-manager/html/navbar.include'"></div>
+    
+    <div ng-include="headerInclude"></div>
     <div id="form-page" class="container apiman-entity-new page" ng-controller="Apiman.OrgNewMemberController as onmCtrl" ng-cloak="" ng-show="pageState == 'loaded'">
       <div class="row">
         <h2 class="title" apiman-i18n-key="new-member">New Member</h2>

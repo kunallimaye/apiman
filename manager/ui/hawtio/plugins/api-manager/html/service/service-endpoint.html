@@ -3,13 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"></meta>
-    
   </head>
 
   <body>
   <div>
-    <div ng-include="'plugins/api-manager/html/progress.include'"></div>
-    <div id="apiman-header" ng-include="'plugins/api-manager/html/navbar.include'"></div>
+    
+    <div ng-include="headerInclude"></div>
     <div ng-controller="Apiman.ServiceEndpointController" class="page container" data-field="page" ng-cloak="" ng-show="pageState == 'loaded'">
       <div ng-include="'plugins/api-manager/html/service/service_bc.include'"></div>
       <!-- Entity Summary Row -->
@@ -35,11 +34,35 @@
             </p>
             <div ng-show="!version.publicService">
               <div class="apiman-divider-40"></div>
-              <div apiman-i18n-key="warning-not-public" class="alert alert-warning">Warning: this Service is not public - this endpoint will only work if a valid Service Contract API key is included in requests made to it.</div>
+              <div apiman-i18n-key="warning-not-public" class="alert alert-warning no-icon">Warning: this Service is not public - this endpoint will only work if a valid Service Contract API key is included in requests made to it.</div>
             </div>
             <hr />
-            <div class="apiman-form-label" apiman-i18n-key="managed-endpoint">Managed Endpoint</div>
-            <textarea readonly="readonly" class="apiman-endpoint" style="width:100%" data-field="mangedEndpoint">{{ managedEndpoint.managedEndpoint }}</textarea>
+            <div class="apiman-form-label">
+              <p apiman-i18n-key="managed-endpoint">Managed Endpoint</p>
+            </div>
+              <div class="input-group" style="width: 80%">
+                  <input type="text"
+                         style="background-color: white; color: black"
+                         class="apiman-endpoint form-control"
+                         readonly="readonly"
+                         data-field="mangedEndpoint"
+                         value="{{ managedEndpoint.managedEndpoint }}">
+                  <span class="input-group-btn">
+                      <button clipboard
+                              text="managedEndpoint.managedEndpoint"
+                              class="btn btn-default"
+                              type="button"
+                              on-copied="copySuccess()"
+                              on-error="copyFail(err)"
+                              data-toggle="tooltip"
+                              data-placement="bottom"
+                              data-original-title="Copy to clipboard"
+                              ng-mouseleave="tooltipReset()"
+                              ng-click="tooltipChange()">
+                        <span class="glyphicon glyphicon-copy"></span>
+                      </button>
+                  </span>
+              </div>
           </div>
           <!-- /Content Summary -->
         </div>

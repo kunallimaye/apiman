@@ -6,15 +6,18 @@ module Apiman {
         ['$q', '$rootScope', '$scope', '$location', 'PageLifecycle', 'ServiceEntityLoader', 'OrgSvcs', 'ApimanSvcs', '$routeParams', 'EntityStatusService', 'Logger', 'Configuration',
         ($q, $rootScope, $scope, $location, PageLifecycle, ServiceEntityLoader, OrgSvcs, ApimanSvcs, $routeParams, EntityStatusService, Logger, Configuration) => {
             var params = $routeParams;
+
             $scope.organizationId = params.org;
             $scope.tab = 'impl';
             $scope.version = params.version;
             $scope.typeOptions = ["rest", "soap"];
+            $scope.contentTypeOptions = ["json", "xml"];
             $scope.updatedService = new Object();
             $scope.apiSecurity = new Object();
             $scope.showMetrics = Configuration.ui.metrics;
 
             var pageData = ServiceEntityLoader.getCommonData($scope, $location);
+
             if (params.version != null) {
                 pageData = angular.extend(pageData, {
                     gateways: $q(function(resolve, reject) {
@@ -22,6 +25,12 @@ module Apiman {
                     })
                 });
             }
+
+            $scope.isEntityDisabled = function() {
+                var status = EntityStatusService.getEntityStatus();
+
+                return (status !== 'Created' && status !== 'Ready');
+            };
             
             var epValue = function(endpointProperties, key) {
                 if (endpointProperties && endpointProperties[key]) {
@@ -91,7 +100,13 @@ module Apiman {
                 if ($scope.version) {
                     var dirty = false;
                     
-                    if (newValue.endpoint != $scope.version.endpoint || newValue.endpointType != $scope.version.endpointType) {
+                    if (newValue.endpoint != $scope.version.endpoint) {
+                        dirty = true;
+                    }
+                    if (newValue.endpointType != $scope.version.endpointType) {
+                        dirty = true;
+                    }
+                    if (newValue.endpointContentType != $scope.version.endpointContentType) {
                         dirty = true;
                     }
                     
@@ -136,9 +151,16 @@ module Apiman {
             });
 
             $scope.reset = function() {
+                if (!$scope.version.endpointType) {
+                  $scope.version.endpointType = 'rest';
+                }
+                if (!$scope.version.endpointContentType) {
+                    $scope.version.endpointContentType = 'json';
+                  }
                 $scope.apiSecurity = toApiSecurity($scope.version);
                 $scope.updatedService.endpoint = $scope.version.endpoint;
                 $scope.updatedService.endpointType = $scope.version.endpointType;
+                $scope.updatedService.endpointContentType = $scope.version.endpointContentType;
                 $scope.updatedService.endpointProperties = angular.copy($scope.version.endpointProperties);
                 delete $scope.updatedService.gateways;
                 if ($scope.version.gateways && $scope.version.gateways.length > 0) {
@@ -162,8 +184,32 @@ module Apiman {
                     EntityStatusService.setEntityStatus(reply.status);
                 }, PageLifecycle.handleError);
             };
-            
-            PageLifecycle.loadPage('ServiceImpl', pageData, $scope, function() {
+
+
+            // Endpoint Validation
+            $scope.invalidEndpoint = false;
+
+            $scope.validateEndpoint = function() {
+                var first7 = $scope.updatedService.endpoint.substring(0, 7);
+                var first8 = $scope.updatedService.endpoint.substring(0, 8);
+
+                var re = new RegExp('^(http|https):\/\/', 'i');
+
+                // Test first 7 letters for http:// first
+                if(re.test(first7) === true) {
+                    $scope.saveService();
+                } else {
+                    // If it fails, test first 8 letters for https:// next
+                    if(re.test(first8) === true) {
+                        $scope.saveService();
+                    } else {
+                        console.log('Invalid input.');
+                        $scope.invalidEndpoint = true;
+                    }
+                }
+            };
+
+            PageLifecycle.loadPage('ServiceImpl', 'svcView', pageData, $scope, function() {
                 $scope.reset();
                 PageLifecycle.setPageTitle('service-impl', [ $scope.service.name ]);
                 
@@ -176,6 +222,5 @@ module Apiman {
                     }
                 }
             });
-        }])
-
+        }]);
 }

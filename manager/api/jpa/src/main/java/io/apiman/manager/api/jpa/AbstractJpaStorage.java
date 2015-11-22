@@ -26,11 +26,13 @@ import io.apiman.manager.api.beans.search.SearchResultsBean;
 import io.apiman.manager.api.core.exceptions.StorageException;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import javax.inject.Inject;
 import javax.persistence.EntityExistsException;
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 import javax.persistence.RollbackException;
 import javax.persistence.TypedQuery;
 import javax.persistence.criteria.CriteriaBuilder;
@@ -216,6 +218,10 @@ public abstract class AbstractJpaStorage {
         return rval;
     }
 
+    protected <T> Iterator<T> getAll(Class<T> type, Query query) throws StorageException {
+        return new EntityIterator(type, query);
+    }
+
     /**
      * Get object of type T
      *
@@ -372,6 +378,86 @@ public abstract class AbstractJpaStorage {
      */
     public void setEmfAccessor(IEntityManagerFactoryAccessor emfAccessor) {
         this.emfAccessor = emfAccessor;
+    }
+
+    /**
+     * Allows iterating over all entities of a given type.
+     * @author eric.wittmann@redhat.com
+     */
+    private class EntityIterator<T> implements Iterator<T> {
+
+        private Query query;
+        private int pageIndex = 0;
+        private int pageSize = 100;
+        
+        private int resultIndex;
+        private List<T> results;
+
+        /**
+         * Constructor.
+         * @param query
+         * @throws StorageException
+         */
+        public EntityIterator(Class<T> type, Query query) throws StorageException {
+            this.query = query;
+            fetch();
+        }
+
+        /**
+         * Initialize the search.
+         */
+        private void fetch() {
+            if (results != null && results.size() < pageSize) {
+                results = new ArrayList<>();
+            } else {
+                query.setFirstResult(pageIndex);
+                query.setMaxResults(pageSize);
+                results = query.getResultList();
+            }
+            resultIndex = 0;
+            pageIndex += pageSize;
+        }
+
+        /**
+         * @see java.util.Iterator#hasNext()
+         */
+        @Override
+        public boolean hasNext() {
+            return resultIndex < results.size();
+        }
+
+        /**
+         * @see java.util.Iterator#next()
+         */
+        @Override
+        public T next() {
+            T rval = results.get(resultIndex++);
+            entityManager().detach(rval);
+            if (resultIndex >= results.size()) {
+                fetch();
+            }
+            return rval;
+        }
+
+        /**
+         * @throws StorageException
+         */
+        private EntityManager entityManager() {
+            try {
+                return getActiveEntityManager();
+            } catch (StorageException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        
+        /**
+         * @see java.util.Iterator#remove()
+         */
+        @Override
+        public void remove() {
+            // Not implemented.
+        }
+
     }
 
 }

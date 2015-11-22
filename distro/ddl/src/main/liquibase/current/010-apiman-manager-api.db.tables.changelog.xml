@@ -258,6 +258,7 @@
             <column name="version" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
+            <column name="deleted" type="BOOLEAN"/>
         </createTable>
     </changeSet>
     <changeSet author="apiman (generated)" id="1436469846462-14">
@@ -321,6 +322,7 @@
             <column name="policy_impl" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
+            <column name="deleted" type="BOOLEAN"/>
         </createTable>
     </changeSet>
     <changeSet author="apiman (generated)" id="1436469846462-16">
@@ -362,6 +364,7 @@
             <column name="definition_type" type="VARCHAR(255)"/>
             <column name="endpoint" type="VARCHAR(255)"/>
             <column name="endpoint_type" type="VARCHAR(255)"/>
+            <column name="endpoint_ct" type="VARCHAR(255)"/>
             <column name="modified_by" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
@@ -399,6 +402,7 @@
             <column name="organization_id" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
+            <column name="num_published" type="INTEGER" />
         </createTable>
     </changeSet>
     <changeSet author="apiman (generated)" id="1436469846462-20">
@@ -432,6 +436,16 @@
             <column name="email" type="VARCHAR(255)"/>
             <column name="full_name" type="VARCHAR(255)"/>
             <column name="joined_on" type="TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+    <changeSet author="apiman (generated)" id="1436469846462-23">
+        <createTable tableName="downloads">
+            <column name="id" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="VARCHAR(255)"/>
+            <column name="path" type="VARCHAR(255)"/>
+            <column name="expires" type="TIMESTAMP"/>
         </createTable>
     </changeSet>
 </databaseChangeLog>

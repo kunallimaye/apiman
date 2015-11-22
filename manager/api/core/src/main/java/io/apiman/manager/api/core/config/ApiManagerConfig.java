@@ -38,6 +38,8 @@ public abstract class ApiManagerConfig {
     public static final String APIMAN_MANAGER_CONFIG_LOGGER = "apiman-manager.config.logger"; //$NON-NLS-1$
 
     public static final String APIMAN_API_KEY_GENERATOR_TYPE = "apiman-manager.api-keys.generator.type"; //$NON-NLS-1$
+    
+    public static final String APIMAN_MANAGER_NEW_USER_BOOTSTRAPPER_TYPE = "apiman-manager.user-bootstrapper.type"; //$NON-NLS-1$
 
     /* -------------------------------------------------------
      * Storage
@@ -50,9 +52,9 @@ public abstract class ApiManagerConfig {
     public static final String APIMAN_MANAGER_STORAGE_ES_USERNAME = "apiman-manager.storage.es.username"; //$NON-NLS-1$
     public static final String APIMAN_MANAGER_STORAGE_ES_PASSWORD = "apiman-manager.storage.es.password"; //$NON-NLS-1$
     public static final String APIMAN_MANAGER_STORAGE_ES_INITIALIZE = "apiman-manager.storage.es.initialize"; //$NON-NLS-1$
+    public static final String APIMAN_MANAGER_STORAGE_ES_TIMEOUT = "apiman-manager.storage.es.timeout"; //$NON-NLS-1$
 
     public static final String APIMAN_MANAGER_STORAGE_QUERY_TYPE = "apiman-manager.storage-query.type"; //$NON-NLS-1$
-    public static final String APIMAN_MANAGER_IDM_STORAGE_TYPE = "apiman-manager.idm-storage.type"; //$NON-NLS-1$
 
     public static final String APIMAN_MANAGER_SERVICE_CATALOG_TYPE = "apiman-manager.service-catalog.type"; //$NON-NLS-1$
 
@@ -66,6 +68,7 @@ public abstract class ApiManagerConfig {
     public static final String APIMAN_MANAGER_METRICS_ES_CLUSTER_NAME = "apiman-manager.metrics.es.cluster-name"; //$NON-NLS-1$
     public static final String APIMAN_MANAGER_METRICS_ES_USERNAME = "apiman-manager.metrics.es.username"; //$NON-NLS-1$
     public static final String APIMAN_MANAGER_METRICS_ES_PASSWORD = "apiman-manager.metrics.es.password"; //$NON-NLS-1$
+    public static final String APIMAN_MANAGER_METRICS_ES_TIMEOUT = "apiman-manager.metrics.es.timeout"; //$NON-NLS-1$
 
     public static final String APIMAN_MANAGER_SECURITY_CONTEXT_TYPE = "apiman-manager.security-context.type"; //$NON-NLS-1$
 
@@ -73,6 +76,7 @@ public abstract class ApiManagerConfig {
     public static final String APIMAN_PLUGIN_REGISTRIES = "apiman-manager.plugins.registries"; //$NON-NLS-1$
 
     public static final String DEFAULT_ES_CLUSTER_NAME = "apiman"; //$NON-NLS-1$
+    public static final int DEFAULT_JEST_TIMEOUT = 6000;
 
     private final Configuration config;
 
@@ -133,6 +137,20 @@ public abstract class ApiManagerConfig {
     }
 
     /**
+     * @return the configured user bootstrapper type
+     */
+    public String getNewUserBootstrapperType() {
+        return config.getString(APIMAN_MANAGER_NEW_USER_BOOTSTRAPPER_TYPE, null);
+    }
+
+    /**
+     * @return any custom properties associated with the user bootstrapper (useful for custom impls)
+     */
+    public Map<String, String> getNewUserBootstrapperProperties() {
+        return getPrefixedProperties("apiman-manager.user-bootstrapper."); //$NON-NLS-1$
+    }
+
+    /**
      * @return the configured storage type
      */
     public String getStorageType() {
@@ -143,14 +161,7 @@ public abstract class ApiManagerConfig {
      * @return the configured storage query type
      */
     public String getStorageQueryType() {
-        return config.getString(APIMAN_MANAGER_STORAGE_QUERY_TYPE, "jpa"); //$NON-NLS-1$
-    }
-
-    /**
-     * @return the configured storage query type
-     */
-    public String getIdmStorageType() {
-        return config.getString(APIMAN_MANAGER_IDM_STORAGE_TYPE, getStorageType());
+        return config.getString(APIMAN_MANAGER_STORAGE_QUERY_TYPE, getStorageType());
     }
 
     /**
@@ -200,6 +211,10 @@ public abstract class ApiManagerConfig {
      */
     public String getStorageESPassword() {
         return config.getString(APIMAN_MANAGER_STORAGE_ES_PASSWORD, null);
+    }
+    
+    public int getStorageESTimeout() {
+        return config.getInt(APIMAN_MANAGER_STORAGE_ES_TIMEOUT, DEFAULT_JEST_TIMEOUT);
     }
 
     /**
@@ -263,6 +278,10 @@ public abstract class ApiManagerConfig {
      */
     public String getMetricsESPassword() {
         return config.getString(APIMAN_MANAGER_METRICS_ES_PASSWORD, null);
+    }
+    
+    public int getMetricsESTimeout() {
+        return config.getInt(APIMAN_MANAGER_METRICS_ES_TIMEOUT, DEFAULT_JEST_TIMEOUT);
     }
 
     /**

@@ -6,6 +6,7 @@ module ApimanPageLifecycle {
         "page.title.admin-plugins": "apiman - Admin - Plugins",
         "page.title.admin-roles": "apiman - Admin - Roles",
         "page.title.admin-policyDefs": "apiman - Admin - Policy Definitions",
+        "page.title.admin-export": "apiman - Admin - Export/Import",
         "page.title.app-activity": "apiman - {0} (Activity)",
         "page.title.app-apis": "apiman - {0} (APIs)",
         "page.title.app-contracts": "apiman - {0} (Contracts)",
@@ -80,14 +81,17 @@ module ApimanPageLifecycle {
     export var _module = angular.module("ApimanPageLifecycle", []);
 
     export var PageLifecycle = _module.factory('PageLifecycle', 
-        ['$q', 'Logger', '$rootScope', '$location', 'CurrentUserSvcs', 'Configuration', 'TranslationService', '$window',
-        ($q, Logger, $rootScope, $location, CurrentUserSvcs, Configuration, TranslationService, $window) => {
-            $rootScope.showHeader = true;
-            if (Configuration.ui) {
-                if (Configuration.ui.header && Configuration.ui.header != "apiman") {
-                    $rootScope.showHeader = false;
-                }
+        ['$q', 'Logger', '$rootScope', '$location', 'CurrentUserSvcs', 'Configuration', 'TranslationService', '$window', 'CurrentUser',
+        ($q, Logger, $rootScope, $location, CurrentUserSvcs, Configuration, TranslationService, $window, CurrentUser) => {
+            var header = 'community';
+            if (Configuration.ui && Configuration.ui.header) {
+                header = Configuration.ui.header;
             }
+            if (header == 'apiman') {
+                header = 'community';
+            }
+            $rootScope.headerInclude = 'plugins/api-manager/html/headers/' + header + '.include';
+            console.log('Using header: ' + $rootScope.headerInclude);
 
             var processCurrentUser = function(currentUser) {
                 $rootScope.currentUser = currentUser;
@@ -127,6 +131,7 @@ module ApimanPageLifecycle {
                     Logger.info('Detected an error {0}, redirecting to CORS error page.', error.status);
                     $location.url(Apiman.pluginName + '/errors/invalid_server').replace();
                 } else {
+                    // TODO: if the error data starts with <html> then redirect to a more generic html-into-div based error page
                     Logger.info('Detected an error {0}, redirecting to 500.', error.status);
                     $location.url(Apiman.pluginName + '/errors/500').replace();
                 }
@@ -157,16 +162,17 @@ module ApimanPageLifecycle {
                     Logger.info('Redirecting to page {0}', path);
                     $location.url(path);
                 },
-                loadPage: function(pageName, pageData, $scope, handler) {
+                loadPage: function(pageName, requiredPermission, pageData, $scope, handler) {
                     Logger.log("|{0}| >> Loading page.", pageName);
                     $rootScope.pageState = 'loading';
+                    $rootScope.isDirty = false;
 
                     // Every page gets the current user.
                     var allData = undefined;
                     var commonData = {
                         currentUser: $q(function(resolve, reject) {
                             if ($rootScope.currentUser) {
-                                Logger.log("|{0}| >> Using cached current user from $rootScope.");
+                                Logger.log("|{0}| >> Using cached current user from $rootScope.", pageName);
                                 resolve($rootScope.currentUser);
                             } else {
                                 CurrentUserSvcs.get({ what: 'info' }, function(currentUser) {
@@ -187,6 +193,13 @@ module ApimanPageLifecycle {
                     // Now resolve the data as a promise (wait for all data packets to be fetched)
                     var promise = $q.all(allData);
                     promise.then(function(data) {
+                        // Make sure the user has permission to view this page.
+                        if ( requiredPermission && !CurrentUser.hasPermission($scope.organizationId, requiredPermission)) {
+                            Logger.info('Detected a 404 error.');
+                            $location.url(Apiman.pluginName + '/errors/404').replace();
+                            return;
+                        }
+                        // Now process all the data packets and bind them to the $scope.
                         var count = 0;
                         angular.forEach(data, function(value, key) {
                             Logger.debug("|{0}| >> Binding {1} to $scope.", pageName, key);

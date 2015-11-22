@@ -16,16 +16,19 @@
 package io.apiman.gateway.engine.policies.auth;
 
 import io.apiman.gateway.engine.async.AsyncResultImpl;
+import io.apiman.gateway.engine.async.IAsyncResult;
 import io.apiman.gateway.engine.async.IAsyncResultHandler;
 import io.apiman.gateway.engine.beans.ServiceRequest;
+import io.apiman.gateway.engine.components.jdbc.IJdbcClient;
+import io.apiman.gateway.engine.components.jdbc.IJdbcComponent;
+import io.apiman.gateway.engine.components.jdbc.IJdbcConnection;
+import io.apiman.gateway.engine.components.jdbc.IJdbcResultSet;
+import io.apiman.gateway.engine.components.jdbc.JdbcOptionsBean;
 import io.apiman.gateway.engine.policies.AuthorizationPolicy;
 import io.apiman.gateway.engine.policies.config.basicauth.JDBCIdentitySource;
+import io.apiman.gateway.engine.policies.config.basicauth.JDBCType;
 import io.apiman.gateway.engine.policy.IPolicyContext;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -53,22 +56,17 @@ public class JDBCIdentityValidator implements IIdentityValidator<JDBCIdentitySou
      * @see io.apiman.gateway.engine.policies.auth.IIdentityValidator#validate(String, String, ServiceRequest, IPolicyContext, Object, IAsyncResultHandler)
      */
     @Override
-    public void validate(String username, String password, ServiceRequest request, IPolicyContext context,
-            JDBCIdentitySource config, IAsyncResultHandler<Boolean> handler) {
-        DataSource ds = null;
-        try {
-            ds = lookupDatasource(config);
-        } catch (Throwable t) {
-            handler.handle(AsyncResultImpl.create(t, Boolean.class));
-            return;
-        }
+    public void validate(final String username, final String password, final ServiceRequest request,
+            final IPolicyContext context, final JDBCIdentitySource config,
+            final IAsyncResultHandler<Boolean> handler) {
+        
         String sqlPwd = password;
         switch (config.getHashAlgorithm()) {
         case MD5:
             sqlPwd = DigestUtils.md5Hex(password);
             break;
         case SHA1:
-            sqlPwd = DigestUtils.sha1Hex(password);
+            sqlPwd = DigestUtils.shaHex(password);
             break;
         case SHA256:
             sqlPwd = DigestUtils.sha256Hex(password);
@@ -83,49 +81,133 @@ public class JDBCIdentityValidator implements IIdentityValidator<JDBCIdentitySou
         default:
             break;
         }
-        String query = config.getQuery();
-        Connection conn = null;
-        boolean validated = false;
+        final String query = config.getQuery();
+        final String queryUsername = username;
+        final String queryPassword = sqlPwd;
+        
+        IJdbcClient client = null;
         try {
-            // Get a JDBC connection
-            conn = ds.getConnection();
-            conn.setReadOnly(true);
-
-            // Validate the user exists and the password matches.
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.setString(1, username);
-            statement.setString(2, sqlPwd);
-            ResultSet resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                validated = true;
-            }
-            resultSet.close();
-            statement.close();
-
-            // Extract roles from the DB
-            if (config.isExtractRoles()) {
-                statement = conn.prepareStatement(config.getRoleQuery());
-                statement.setString(1, username);
-                resultSet = statement.executeQuery();
-                Set<String> extractedRoles = new HashSet<>();
-                while (resultSet.next()) {
-                    String roleName = resultSet.getString(1);
-                    extractedRoles.add(roleName);
-                }
-                resultSet.close();
-                statement.close();
-                // Save the extracted roles to the policy context for use by e.g.
-                // the Authorization policy (if configured).
-                context.setAttribute(AuthorizationPolicy.AUTHENTICATED_USER_ROLES, extractedRoles);
-            }
-
-            handler.handle(AsyncResultImpl.create(validated));
-        } catch (Exception e) {
+            client = createClient(context, config);
+        } catch (Throwable e) {
             handler.handle(AsyncResultImpl.create(e, Boolean.class));
-        } finally {
-            if (conn != null) {
-                try { conn.close(); } catch (SQLException e) { }
+            return;
+        }
+        
+        client.connect(new IAsyncResultHandler<IJdbcConnection>() {
+            @Override
+            public void handle(IAsyncResult<IJdbcConnection> result) {
+                if (result.isError()) {
+                    handler.handle(AsyncResultImpl.create(result.getError(), Boolean.class));
+                } else {
+                    validate(result.getResult(), query, queryUsername, queryPassword, context, config, handler);
+                }
             }
+        });
+    }
+
+    /**
+     * Creates the appropriate jdbc client.
+     * @param context 
+     * @param config
+     */
+    private IJdbcClient createClient(IPolicyContext context, JDBCIdentitySource config) throws Throwable {
+        IJdbcComponent jdbcComponent = context.getComponent(IJdbcComponent.class);
+
+        if (config.getType() == JDBCType.datasource || config.getType() == null) {
+            DataSource ds = lookupDatasource(config);
+            return jdbcComponent.create(ds);
+        }
+        if (config.getType() == JDBCType.url) {
+            config.getJdbcUrl();
+            JdbcOptionsBean options = new JdbcOptionsBean();
+            options.setJdbcUrl(config.getJdbcUrl());
+            options.setUsername(config.getUsername());
+            options.setPassword(config.getPassword());
+            options.setAutoCommit(true);
+            return jdbcComponent.createStandalone(options);
+        }
+        throw new Exception("Unknown JDBC options."); //$NON-NLS-1$
+    }
+
+    /**
+     * @param connection
+     * @param query
+     * @param username
+     * @param context
+     * @param password
+     * @param config
+     * @param handler
+     */
+    protected void validate(final IJdbcConnection connection, final String query, final String username,
+            final String password, final IPolicyContext context, final JDBCIdentitySource config,
+            final IAsyncResultHandler<Boolean> handler) {
+        IAsyncResultHandler<IJdbcResultSet> queryHandler = new IAsyncResultHandler<IJdbcResultSet>() {
+            @Override
+            public void handle(IAsyncResult<IJdbcResultSet> result) {
+                if (result.isError()) {
+                    closeQuietly(connection);
+                    handler.handle(AsyncResultImpl.create(result.getError(), Boolean.class));
+                } else {
+                    boolean validated = false;
+                    IJdbcResultSet resultSet = result.getResult();
+                    if (resultSet.next()) {
+                        validated = true;
+                    }
+                    resultSet.close();
+                    if (validated && config.isExtractRoles()) {
+                        extractRoles(connection, username, context, config, handler);
+                    } else {
+                        closeQuietly(connection);
+                        handler.handle(AsyncResultImpl.create(validated));
+                    }
+                }
+            }
+        };
+        connection.query(queryHandler, query, username, password);
+    }
+
+    /**
+     * @param connection
+     * @param username
+     * @param context
+     * @param config
+     * @param handler
+     */
+    protected void extractRoles(final IJdbcConnection connection, final String username,
+            final IPolicyContext context, final JDBCIdentitySource config,
+            final IAsyncResultHandler<Boolean> handler) {
+        
+        String roleQuery = config.getRoleQuery();
+        IAsyncResultHandler<IJdbcResultSet> roleHandler = new IAsyncResultHandler<IJdbcResultSet>() {
+            @Override
+            public void handle(IAsyncResult<IJdbcResultSet> result) {
+                if (result.isError()) {
+                    closeQuietly(connection);
+                    handler.handle(AsyncResultImpl.create(result.getError(), Boolean.class));
+                } else {
+                    Set<String> extractedRoles = new HashSet<>();
+                    IJdbcResultSet resultSet = result.getResult();
+                    while (resultSet.next()) {
+                        String roleName = resultSet.getString(1);
+                        extractedRoles.add(roleName);
+                    }
+                    context.setAttribute(AuthorizationPolicy.AUTHENTICATED_USER_ROLES, extractedRoles);
+                    closeQuietly(connection);
+                    handler.handle(AsyncResultImpl.create(true));
+                }
+            }
+        };
+        connection.query(roleHandler, roleQuery, username);
+    }
+
+    /**
+     * @param connection
+     */
+    protected void closeQuietly(IJdbcConnection connection) {
+        try {
+            connection.close();
+        } catch (Exception e) {
+            // TODO log this error
         }
     }
 

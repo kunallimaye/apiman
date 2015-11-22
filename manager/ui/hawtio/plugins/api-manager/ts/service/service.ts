@@ -7,13 +7,15 @@ module Apiman {
         ($q, $scope, $location, OrgSvcs, PageLifecycle, $rootScope, CurrentUser, $routeParams) => {
             var orgId = $routeParams.org;
             var serviceId = $routeParams.service;
+
             var pageData = {
                 versions: $q(function(resolve, reject) {
                     OrgSvcs.query({ organizationId: orgId, entityType: 'services', entityId: serviceId, versionsOrActivity: 'versions' }, resolve, reject);
                 })
             };
+            $scope.organizationId = orgId;
 
-            PageLifecycle.loadPage('ServiceRedirect', pageData, $scope, function() {
+            PageLifecycle.loadPage('ServiceRedirect', 'svcView', pageData, $scope, function() {
                 var version = $scope.versions[0].version;
                 if (!version) {
                     PageLifecycle.handleError({ status: 404 });
@@ -29,6 +31,7 @@ module Apiman {
             return {
                 getCommonData: function($scope, $location) {
                     var params = $routeParams;
+
                     return {
                         version: $q(function(resolve, reject) {
                             OrgSvcs.get({ organizationId: params.org, entityType: 'services', entityId: params.service, versionsOrActivity: 'versions', version: params.version }, function(version) {
@@ -48,17 +51,76 @@ module Apiman {
         }]);
 
     export var ServiceEntityController = _module.controller("Apiman.ServiceEntityController",
-        ['$q', '$scope', '$location', 'ActionSvcs', 'Logger', 'Dialogs', 'PageLifecycle', '$routeParams', 'OrgSvcs', 'EntityStatusService', 'Configuration',
-        ($q, $scope, $location, ActionSvcs, Logger, Dialogs, PageLifecycle, $routeParams, OrgSvcs, EntityStatusService, Configuration) => {
+        ['$rootScope', '$q', '$location', '$scope', 'ActionSvcs', 'Logger', 'Dialogs', 'PageLifecycle', '$routeParams', 'OrgSvcs', 'EntityStatusService', 'Configuration',
+        ($rootScope, $q, $location, $scope, ActionSvcs, Logger, Dialogs, PageLifecycle, $routeParams, OrgSvcs, EntityStatusService, Configuration) => {
             var params = $routeParams;
             $scope.params = params;
 
             $scope.setEntityStatus = function(status) {
                 EntityStatusService.setEntityStatus(status);
             };
-            $scope.getEntityStatus = function(){
+
+            $scope.getEntityStatus = function() {
                 return EntityStatusService.getEntityStatus();
             };
+
+            $scope.isEntityDisabled = function() {
+                var status = EntityStatusService.getEntityStatus();
+
+                return (status !== 'Created' && status !== 'Ready');
+            };
+
+
+            // ----- Status Checklist Popover --------------------->>>>
+
+            $scope.checklist = [];
+
+            // Initiates the tooltip (this is required for performance reasons)
+            $(function () {
+                $('[data-toggle="popover"]').popover();
+            });
+
+            // Set initial popover value to be closed
+            $scope.isOpen = false;
+
+            // Set initial collapse (for context information in checklist) to be closed
+            $scope.isCollapsed = true;
+
+            // Popover options
+            $scope.checklistPopover = {
+                templateUrl: 'checklistTemplate.html',
+                title: 'Publish Checklist'
+            };
+
+            // Called when user clicks 'Why can't I publish?' & opens modal
+            $scope.getStatusDetails = function() {
+                return OrgSvcs.get({
+                    organizationId: params.org,
+                    entityType: 'services',
+                    entityId: params.service,
+                    versionsOrActivity: 'versions',
+                    version: params.version,
+                    policiesOrActivity: 'status'
+                }, function(response) {
+                    $scope.checklist = response.items;
+
+                    $scope.isOpen = true;
+                });
+            };
+
+            $scope.oneAtATime = true;
+
+            $scope.goTo = function(idx, item, e) {
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+
+                $location.path( $rootScope.pluginName + '/orgs/' + params.org + '/services/' + params.service + '/' + params.version + '/' + item.path);
+            };
+
+
+            // ----- Service Update Methods --------------------->>>>
 
             $scope.setVersion = function(service) {
                 PageLifecycle.redirectTo('/orgs/{0}/services/{1}/{2}', params.org, params.service, service.version);
@@ -66,12 +128,14 @@ module Apiman {
 
             $scope.publishService = function() {
                 $scope.publishButton.state = 'in-progress';
+
                 var publishAction = {
                     type: 'publishService',
                     entityId: params.service,
                     organizationId: params.org,
                     entityVersion: params.version
                 };
+                
                 ActionSvcs.save(publishAction, function(reply) {
                     $scope.version.status = 'Published';
                     $scope.publishButton.state = 'complete';
@@ -81,6 +145,7 @@ module Apiman {
 
             $scope.retireService = function() {
                 $scope.retireButton.state = 'in-progress';
+
                 Dialogs.confirm('Confirm Retire Service', 'Do you really want to retire this service?  This action cannot be undone.', function() {
                     var retireAction = {
                         type: 'retireService',
@@ -88,11 +153,13 @@ module Apiman {
                         organizationId: params.org,
                         entityVersion: params.version
                     };
+
                     ActionSvcs.save(retireAction, function(reply) {
                         $scope.version.status = 'Retired';
                         $scope.retireButton.state = 'complete';
                         $scope.setEntityStatus($scope.version.status);
                     }, PageLifecycle.handleError);
+
                 }, function() {
                     $scope.retireButton.state = 'complete';
                 });
@@ -101,7 +168,7 @@ module Apiman {
             $scope.updateServiceDescription = function(updatedDescription) {
                 var updateServiceBean = {
                     description: updatedDescription
-                }
+                };
 
                 OrgSvcs.update({
                     organizationId: $scope.organizationId,
@@ -116,5 +183,5 @@ module Apiman {
                     Logger.error("Unable to update service description:  {0}", error);
                 });
             };
-        }])
+        }]);
 }

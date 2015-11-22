@@ -60,6 +60,7 @@ public class ESRegistryMarshalling {
         builder.startObject()
             .field("endpoint", bean.getEndpoint())
             .field("endpointType", bean.getEndpointType())
+            .field("endpointContentType", bean.getEndpointContentType())
             .field("publicService", bean.isPublicService())
             .field("organizationId", bean.getOrganizationId())
             .field("serviceId", bean.getServiceId())
@@ -102,6 +103,7 @@ public class ESRegistryMarshalling {
         bean.setEndpoint(asString(source.get("endpoint")));
         bean.setEndpointProperties(asStringMap(source.get("endpointProperties")));
         bean.setEndpointType(asString(source.get("endpointType")));
+        bean.setEndpointContentType(asString(source.get("endpointContentType")));
         bean.setOrganizationId(asString(source.get("organizationId")));
         bean.setPublicService(asBoolean(source.get("publicService")));
         bean.setServiceId(asString(source.get("serviceId")));
@@ -123,9 +125,9 @@ public class ESRegistryMarshalling {
      * Marshals the given bean into the given map.
      * @param bean the application bean
      * @return the content builder
-     * @throws Exception when json marshalling fails
+     * @throws IOException when json marshalling fails
      */
-    public static XContentBuilder marshall(Application bean) throws Exception {
+    public static XContentBuilder marshall(Application bean) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         marshallInto(bean, builder);
         return builder;

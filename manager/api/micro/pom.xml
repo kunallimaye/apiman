@@ -60,10 +60,6 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>apiman-manager-api-jpa-idm</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
       <artifactId>apiman-manager-api-es</artifactId>
     </dependency>
     <dependency>
@@ -81,6 +77,10 @@
     <dependency>
       <groupId>commons-configuration</groupId>
       <artifactId>commons-configuration</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
     </dependency>
 
     <!-- Jetty -->
@@ -213,6 +213,17 @@
     <dependency>
       <artifactId>slf4j-log4j12</artifactId>
       <groupId>org.slf4j</groupId>
+    </dependency>
+    <dependency>
+      <groupId>io.swagger</groupId>
+      <artifactId>swagger-jaxrs</artifactId>
+      <exclusions>
+        <!-- avoid this old dependency which breaks CXF -->
+        <exclusion>
+          <groupId>javax.ws.rs</groupId>
+          <artifactId>jsr311-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
 

@@ -3,12 +3,17 @@
 module Apiman {
 
     export var OrgPlansController = _module.controller("Apiman.OrgPlansController",
-        ['$q', '$scope', '$location', 'OrgSvcs', 'PageLifecycle', '$rootScope', '$routeParams',
-        ($q, $scope, $location, OrgSvcs, PageLifecycle, $rootScope, $routeParams) => {
+        ['$q', '$scope', '$location', 'OrgSvcs', 'PageLifecycle', '$rootScope', '$routeParams', 'CurrentUser', 'Logger',
+        ($q, $scope, $location, OrgSvcs, PageLifecycle, $rootScope, $routeParams, CurrentUser, Logger) => {
             $scope.tab = 'plans';
             var params = $routeParams;
             $scope.organizationId = params.org;
-            
+
+            if (!CurrentUser.hasPermission(params.org, 'planView')) {
+                Logger.info('planView permission not found - forcing user reload');
+                delete $rootScope['currentUser'];
+            }
+
             $scope.filterPlans = function(value) {
                 if (!value) {
                     $scope.filteredPlans = $scope.plans;
@@ -42,7 +47,7 @@ module Apiman {
                     }, reject);
                 })
             };
-            PageLifecycle.loadPage('OrgPlans', pageData, $scope, function() {
+            PageLifecycle.loadPage('OrgPlans', 'planView', pageData, $scope, function() {
                 PageLifecycle.setPageTitle('org-plans', [ $scope.org.name ]);
             });
         }]);

@@ -19,14 +19,16 @@ import io.apiman.common.plugin.Plugin;
 import io.apiman.common.plugin.PluginClassLoader;
 import io.apiman.common.plugin.PluginCoordinates;
 import io.apiman.common.util.ReflectionUtils;
+import io.apiman.manager.api.beans.idm.UserBean;
 import io.apiman.manager.api.core.IApiKeyGenerator;
-import io.apiman.manager.api.core.IIdmStorage;
 import io.apiman.manager.api.core.IMetricsAccessor;
+import io.apiman.manager.api.core.INewUserBootstrapper;
 import io.apiman.manager.api.core.IPluginRegistry;
 import io.apiman.manager.api.core.IServiceCatalog;
 import io.apiman.manager.api.core.IStorage;
 import io.apiman.manager.api.core.IStorageQuery;
 import io.apiman.manager.api.core.UuidApiKeyGenerator;
+import io.apiman.manager.api.core.exceptions.StorageException;
 import io.apiman.manager.api.core.i18n.Messages;
 import io.apiman.manager.api.core.logging.ApimanLogger;
 import io.apiman.manager.api.core.logging.IApimanDelegateLogger;
@@ -37,7 +39,6 @@ import io.apiman.manager.api.core.noop.NoOpMetricsAccessor;
 import io.apiman.manager.api.es.ESMetricsAccessor;
 import io.apiman.manager.api.es.EsStorage;
 import io.apiman.manager.api.jpa.JpaStorage;
-import io.apiman.manager.api.jpa.roles.JpaIdmStorage;
 import io.apiman.manager.api.security.ISecurityContext;
 import io.apiman.manager.api.security.impl.DefaultSecurityContext;
 import io.apiman.manager.api.security.impl.KeycloakSecurityContext;
@@ -64,7 +65,7 @@ import org.apache.commons.lang.StringUtils;
  */
 @ApplicationScoped
 public class WarCdiFactory {
-
+    
     private static JestClient sStorageESClient;
     private static JestClient sMetricsESClient;
     private static EsStorage sESStorage;
@@ -78,6 +79,26 @@ public class WarCdiFactory {
         } catch (InstantiationException | IllegalAccessException e) {
             throw new RuntimeException(String.format(
                     Messages.i18n.format("LoggerFactory.InstantiationFailed")), e); //$NON-NLS-1$
+        }
+    }
+
+    @Produces @ApplicationScoped
+    public static INewUserBootstrapper provideNewUserBootstrapper(WarApiManagerConfig config, IPluginRegistry pluginRegistry) {
+        String type = config.getNewUserBootstrapperType();
+        if (type == null) {
+            return new INewUserBootstrapper() {
+                @Override
+                public void bootstrapUser(UserBean user, IStorage storage) throws StorageException {
+                    // Do nothing special.
+                }
+            };
+        } else {
+            try {
+                return createCustomComponent(INewUserBootstrapper.class, config.getNewUserBootstrapperType(),
+                        config.getNewUserBootstrapperProperties(), pluginRegistry);
+            } catch (Throwable t) {
+                throw new RuntimeException("Error or unknown user bootstrapper type: " + config.getNewUserBootstrapperType(), t); //$NON-NLS-1$
+            }
         }
     }
 
@@ -177,23 +198,6 @@ public class WarCdiFactory {
         }
     }
 
-    @Produces @ApplicationScoped
-    public static IIdmStorage provideIdmStorage(WarApiManagerConfig config, @New JpaIdmStorage jpaIdmStorage,
-            @New EsStorage esStorage, IPluginRegistry pluginRegistry) {
-        if ("jpa".equals(config.getStorageType())) { //$NON-NLS-1$
-            return jpaIdmStorage;
-        } else if ("es".equals(config.getStorageType())) { //$NON-NLS-1$
-            return initES(config, esStorage);
-        } else {
-            try {
-                return createCustomComponent(IIdmStorage.class, config.getIdmStorageType(),
-                        config.getIdmStorageProperties(), pluginRegistry);
-            } catch (Throwable t) {
-                throw new RuntimeException("Error or unknown IDM storage type: " + config.getIdmStorageType(), t); //$NON-NLS-1$
-            }
-        }
-    }
-
     @Produces @ApplicationScoped @Named("storage")
     public static JestClient provideStorageESClient(WarApiManagerConfig config) {
         if ("es".equals(config.getStorageType())) { //$NON-NLS-1$
@@ -233,6 +237,8 @@ public class WarCdiFactory {
         if (username != null) {
             httpConfig.defaultCredentials(username, password);
         }
+        httpConfig.connTimeout(config.getStorageESTimeout());
+        httpConfig.readTimeout(config.getStorageESTimeout());
         factory.setHttpClientConfig(httpConfig.build());
         return factory.getObject();
     }
@@ -256,6 +262,8 @@ public class WarCdiFactory {
         if (username != null) {
             httpConfig.defaultCredentials(username, password);
         }
+        httpConfig.connTimeout(config.getMetricsESTimeout());
+        httpConfig.readTimeout(config.getMetricsESTimeout());
         factory.setHttpClientConfig(httpConfig.build());
         return factory.getObject();
     }

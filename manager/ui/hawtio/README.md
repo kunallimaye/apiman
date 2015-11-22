@@ -1,36 +1,28 @@
-# Hawtio Based API Manager UI
+# APIMan UI
 
-So you're interested in developing the UI for the apiman API Manager?  Here's 
-a quick Getting Started guide for that!
+The APIMan frontend is built with TypeScript and AngularJS. NPM and TSD are used to manage dependencies.
 
-* Install node.js:  http://nodejs.org/
-* Install some stuff using *npm*
-```
-    npm install -g bower gulp slush slush-hawtio-javascript slush-hawtio-typescript typescript
-```
-* Change directory into apiman/manager/ui/hawtio
-```
-    cd ~/git/apiman/manager/ui/hawtio
-```
-* Use *npm* and *bower* to pull in all dependencies
-```
-    npm install
-    bower update
-```
+#### Installation
+
+To install dependencies on the front-end, run the following:
+ 
+ `npm install`
+ 
+This will install NPM dependencies and TS definitions (through an NPM `postinstall` script). No need to install any 
+dependencies globally!
+
+#### Configuration
 * Make a copy of *apiman/config.js-SAMPLE* and name it *apiman/config.js*
-* Configure *config.js* to work with your apiman server
-* Run gulp
-```
-    gulp
-```
-* Point your browser wherver gulp tells you!  For example:
-```
-    [15:09:24] Using gulpfile /home/ewittman/git/apiman/manager/ui/hawtio/gulpfile.js
-    [15:09:24] Starting 'bower'...
-    [15:09:24] Finished 'bower' after 8.45 ms
-    [15:09:24] Starting 'path-adjust'...
-    <snip>
-    [15:09:28] Finished 'default' after 6.97 μs
-    [15:09:28] Server started http://localhost:2772
-    [15:09:28] LiveReload started on port 35729
-```
+* Configure *config.js* to work with your API Manager
+
+_Note_: when running the API Manager UI in gulp, we will use simple BASIC authentication
+with the credentials configured in the *config.js* file you created above.  The *config.js*
+file is local to your machine and not checked into version control.
+
+#### Get Started
+
+To build and run the app:
+
+`gulp`
+
+The above script will also monitor for changes, and will rebuild the app accordingly. To see exactly which files are monitored, check the `watch` task in the Gulpfile, located in `/apiman/manager/ui/hawtio/gulpfile.js`.

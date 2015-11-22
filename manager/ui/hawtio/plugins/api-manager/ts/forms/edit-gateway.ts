@@ -89,6 +89,7 @@ module Apiman {
                 $scope.updateButton.state = 'in-progress';
                 var gateway = Gateway();
                 ApimanSvcs.update({ entityType: 'gateways', secondaryType: $scope.gateway.id }, gateway, function() {
+                    $rootScope.isDirty = false;
                     PageLifecycle.redirectTo('/admin/gateways');
                 }, PageLifecycle.handleError);
             }
@@ -104,7 +105,7 @@ module Apiman {
                 });
             }
             $scope.testGateway = testGateway;
-            PageLifecycle.loadPage('EditGateway', pageData, $scope, function() {
+            PageLifecycle.loadPage('EditGateway', 'admin', pageData, $scope, function() {
                 PageLifecycle.setPageTitle('edit-gateway');
                 $scope.$watch('gateway', validate, true);
                 $scope.$watch('configuration', validate, true);

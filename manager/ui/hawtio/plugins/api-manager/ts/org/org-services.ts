@@ -3,11 +3,15 @@
 module Apiman {
 
     export var OrgServicesController = _module.controller("Apiman.OrgServicesController",
-        ['$q', '$scope', '$location', 'OrgSvcs', 'PageLifecycle', '$rootScope', '$routeParams',
-        ($q, $scope, $location, OrgSvcs, PageLifecycle, $rootScope, $routeParams) => {
+        ['$q', '$scope', '$location', 'OrgSvcs', 'PageLifecycle', '$rootScope', '$routeParams', 'CurrentUser',
+        ($q, $scope, $location, OrgSvcs, PageLifecycle, $rootScope, $routeParams, CurrentUser) => {
             $scope.tab = 'services';
             var params = $routeParams;
             $scope.organizationId = params.org;
+
+            if (!CurrentUser.hasPermission(params.org, 'svcView')) {
+              delete $rootScope['currentUser'];
+            }
 
             $scope.filterServices = function(value) {
                 if (!value) {
@@ -42,7 +46,7 @@ module Apiman {
                     }, reject);
                 })
             };
-            PageLifecycle.loadPage('OrgSvcs', pageData, $scope, function() {
+            PageLifecycle.loadPage('OrgSvcs', 'svcView', pageData, $scope, function() {
                 PageLifecycle.setPageTitle('org-services', [ $scope.org.name ]);
             });
         }])

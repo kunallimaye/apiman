@@ -22,6 +22,8 @@ import io.apiman.manager.api.beans.audit.AuditEntityType;
 import io.apiman.manager.api.beans.audit.AuditEntryBean;
 import io.apiman.manager.api.beans.audit.AuditEntryType;
 import io.apiman.manager.api.beans.contracts.ContractBean;
+import io.apiman.manager.api.beans.download.DownloadBean;
+import io.apiman.manager.api.beans.download.DownloadType;
 import io.apiman.manager.api.beans.gateways.GatewayBean;
 import io.apiman.manager.api.beans.gateways.GatewayType;
 import io.apiman.manager.api.beans.idm.PermissionType;
@@ -37,6 +39,7 @@ import io.apiman.manager.api.beans.policies.PolicyBean;
 import io.apiman.manager.api.beans.policies.PolicyDefinitionBean;
 import io.apiman.manager.api.beans.policies.PolicyDefinitionTemplateBean;
 import io.apiman.manager.api.beans.policies.PolicyType;
+import io.apiman.manager.api.beans.services.EndpointContentType;
 import io.apiman.manager.api.beans.services.EndpointType;
 import io.apiman.manager.api.beans.services.ServiceBean;
 import io.apiman.manager.api.beans.services.ServiceDefinitionType;
@@ -287,6 +290,7 @@ public class EsMarshalling {
                     .field("description", bean.getDescription())
                     .field("createdBy", bean.getCreatedBy())
                     .field("createdOn", bean.getCreatedOn().getTime())
+                    .field("numPublished", bean.getNumPublished())
                 .endObject();
             postMarshall(bean);
             return builder;
@@ -324,6 +328,7 @@ public class EsMarshalling {
                     .field("publicService", bean.isPublicService())
                     .field("endpoint", bean.getEndpoint())
                     .field("endpointType", bean.getEndpointType())
+                    .field("endpointContentType", bean.getEndpointContentType())
                     .field("definitionType", bean.getDefinitionType());
             Set<ServiceGatewayBean> gateways = bean.getGateways();
             if (gateways != null) {
@@ -570,7 +575,8 @@ public class EsMarshalling {
                     .field("formType", bean.getFormType())
                     .field("icon", bean.getIcon())
                     .field("pluginId", bean.getPluginId())
-                    .field("policyImpl", bean.getPolicyImpl());
+                    .field("policyImpl", bean.getPolicyImpl())
+                    .field("deleted", bean.isDeleted());
 
             Set<PolicyDefinitionTemplateBean> templates = bean.getTemplates();
             if (templates != null) {
@@ -613,6 +619,30 @@ public class EsMarshalling {
                     .field("version", bean.getVersion())
                     .field("classifier", bean.getClassifier())
                     .field("type", bean.getType())
+                    .field("deleted", bean.isDeleted())
+                .endObject();
+            postMarshall(bean);
+            return builder;
+        } catch (IOException e) {
+            throw new StorageException(e);
+        }
+    }
+
+    /**
+     * Marshals the given bean into the given map.
+     * @param bean the bean
+     * @return the content builder
+     * @throws StorageException when a storage problem occurs while storing a bean
+     */
+    public static XContentBuilder marshall(DownloadBean bean) throws StorageException {
+        try {
+            preMarshall(bean);
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                    .field("id", bean.getId())
+                    .field("type", bean.getType().name())
+                    .field("path", bean.getPath())
+                    .field("expires", bean.getExpires().getTime())
                 .endObject();
             postMarshall(bean);
             return builder;
@@ -682,6 +712,24 @@ public class EsMarshalling {
         bean.setCreatedOn(asDate(source.get("createdOn")));
         bean.setModifiedBy(asString(source.get("modifiedBy")));
         bean.setModifiedOn(asDate(source.get("modifiedOn")));
+        postMarshall(bean);
+        return bean;
+    }
+
+    /**
+     * Unmarshals the given map source into a bean.
+     * @param source the source
+     * @return the gateway bean
+     */
+    public static DownloadBean unmarshallDownload(Map<String, Object> source) {
+        if (source == null) {
+            return null;
+        }
+        DownloadBean bean = new DownloadBean();
+        bean.setId(asString(source.get("id")));
+        bean.setPath(asString(source.get("path")));
+        bean.setType(asEnum(source.get("type"), DownloadType.class));
+        bean.setExpires(asDate(source.get("expires")));
         postMarshall(bean);
         return bean;
     }
@@ -868,6 +916,7 @@ public class EsMarshalling {
         bean.setDescription(asString(source.get("description")));
         bean.setCreatedBy(asString(source.get("createdBy")));
         bean.setCreatedOn(asDate(source.get("createdOn")));
+        bean.setNumPublished(asInt(source.get("numPublished")));
         postMarshall(bean);
         return bean;
     }
@@ -913,6 +962,7 @@ public class EsMarshalling {
         bean.setRetiredOn(asDate(source.get("retiredOn")));
         bean.setEndpoint(asString(source.get("endpoint")));
         bean.setEndpointType(asEnum(source.get("endpointType"), EndpointType.class));
+        bean.setEndpointContentType(asEnum(source.get("endpointContentType"), EndpointContentType.class));
         bean.setPublicService(asBoolean(source.get("publicService")));
         bean.setDefinitionType(asEnum(source.get("definitionType"), ServiceDefinitionType.class));
         bean.setGateways(new HashSet<ServiceGatewayBean>());
@@ -1209,6 +1259,7 @@ public class EsMarshalling {
         bean.setIcon(asString(source.get("icon")));
         bean.setPluginId(asLong(source.get("pluginId")));
         bean.setPolicyImpl(asString(source.get("policyImpl")));
+        bean.setDeleted(asBoolean(source.get("deleted")));
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> templates = (List<Map<String, Object>>) source.get("templates");
         if (templates != null && !templates.isEmpty()) {
@@ -1271,6 +1322,7 @@ public class EsMarshalling {
         bean.setVersion(asString(source.get("version")));
         bean.setType(asString(source.get("type")));
         bean.setClassifier(asString(source.get("classifier")));
+        bean.setDeleted(asBoolean(source.get("deleted")));
         postMarshall(bean);
         return bean;
     }

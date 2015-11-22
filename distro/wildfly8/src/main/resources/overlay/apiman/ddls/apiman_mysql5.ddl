@@ -2,15 +2,15 @@
 --  Update Database Script
 --  *********************************************************************
 --  Change Log: c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/master.xml
---  Ran at: 7/21/15 11:22 AM
---  Against: null@offline:mysql?version=5.1&caseSensitive=false&changeLogFile=c:\Users\ewittman\git\apiman\apiman\distro\ddl/target/changelog/mysql/databasechangelog.csv
---  Liquibase version: 3.3.5
+--  Ran at: 9/29/15 2:11 PM
+--  Against: null@offline:mysql?version=5.1&caseSensitive=true&changeLogFile=c:\Users\ewittman\git\apiman\apiman\distro\ddl/target/changelog/mysql/databasechangelog.csv
+--  Liquibase version: 3.4.1
 --  *********************************************************************
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/000-apiman-manager-api.db.sequences.changelog.xml::1434723514712-1::apiman
-CREATE TABLE `hibernate_sequence` (`next_val` bigint(20) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+CREATE TABLE hibernate_sequence (next_val bigint(20) DEFAULT NULL) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
-INSERT INTO `hibernate_sequence` VALUES (999);
+INSERT INTO hibernate_sequence VALUES (999);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-1::apiman (generated)
 CREATE TABLE application_versions (id BIGINT NOT NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, modified_by VARCHAR(255) NOT NULL, modified_on datetime NOT NULL, published_on datetime NULL, retired_on datetime NULL, status VARCHAR(255) NOT NULL, version VARCHAR(255) NOT NULL, app_id VARCHAR(255) NULL, app_org_id VARCHAR(255) NULL);
@@ -49,13 +49,13 @@ CREATE TABLE plan_versions (id BIGINT NOT NULL, created_by VARCHAR(255) NOT NULL
 CREATE TABLE plans (id VARCHAR(255) NOT NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, description VARCHAR(512) NULL, name VARCHAR(255) NOT NULL, organization_id VARCHAR(255) NOT NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-13::apiman (generated)
-CREATE TABLE plugins (id BIGINT NOT NULL, artifact_id VARCHAR(255) NOT NULL, classifier VARCHAR(255) NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, description VARCHAR(512) NULL, group_id VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, type VARCHAR(255) NULL, version VARCHAR(255) NOT NULL);
+CREATE TABLE plugins (id BIGINT NOT NULL, artifact_id VARCHAR(255) NOT NULL, classifier VARCHAR(255) NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, description VARCHAR(512) NULL, group_id VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, type VARCHAR(255) NULL, version VARCHAR(255) NOT NULL, deleted BIT(1) NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-14::apiman (generated)
 CREATE TABLE policies (id BIGINT NOT NULL, configuration LONGTEXT NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, entity_id VARCHAR(255) NOT NULL, entity_version VARCHAR(255) NOT NULL, modified_by VARCHAR(255) NOT NULL, modified_on datetime NOT NULL, name VARCHAR(255) NOT NULL, order_index INT NOT NULL, organization_id VARCHAR(255) NOT NULL, type VARCHAR(255) NOT NULL, definition_id VARCHAR(255) NOT NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-15::apiman (generated)
-CREATE TABLE policydefs (id VARCHAR(255) NOT NULL, description VARCHAR(512) NOT NULL, form VARCHAR(255) NULL, form_type VARCHAR(255) NULL, icon VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, plugin_id BIGINT NULL, policy_impl VARCHAR(255) NOT NULL);
+CREATE TABLE policydefs (id VARCHAR(255) NOT NULL, description VARCHAR(512) NOT NULL, form VARCHAR(255) NULL, form_type VARCHAR(255) NULL, icon VARCHAR(255) NOT NULL, name VARCHAR(255) NOT NULL, plugin_id BIGINT NULL, policy_impl VARCHAR(255) NOT NULL, deleted BIT(1) NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-16::apiman (generated)
 CREATE TABLE roles (id VARCHAR(255) NOT NULL, auto_grant BIT(1) NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, description VARCHAR(512) NULL, name VARCHAR(255) NULL);
@@ -64,10 +64,10 @@ CREATE TABLE roles (id VARCHAR(255) NOT NULL, auto_grant BIT(1) NULL, created_by
 CREATE TABLE service_defs (id BIGINT NOT NULL, data LONGBLOB NULL, service_version_id BIGINT NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-18::apiman (generated)
-CREATE TABLE service_versions (id BIGINT NOT NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, definition_type VARCHAR(255) NULL, endpoint VARCHAR(255) NULL, endpoint_type VARCHAR(255) NULL, modified_by VARCHAR(255) NOT NULL, modified_on datetime NOT NULL, public_service BIT(1) NOT NULL, published_on datetime NULL, retired_on datetime NULL, status VARCHAR(255) NOT NULL, version VARCHAR(255) NULL, service_id VARCHAR(255) NULL, service_org_id VARCHAR(255) NULL);
+CREATE TABLE service_versions (id BIGINT NOT NULL, created_by VARCHAR(255) NOT NULL, created_on timestamp NOT NULL, definition_type VARCHAR(255) NULL, endpoint VARCHAR(255) NULL, endpoint_type VARCHAR(255) NULL, endpoint_ct VARCHAR(255) NULL, modified_by VARCHAR(255) NOT NULL, modified_on timestamp NOT NULL, public_service BIT(1) NOT NULL, published_on timestamp NULL, retired_on timestamp NULL, status VARCHAR(255) NOT NULL, version VARCHAR(255) NULL, service_id VARCHAR(255) NULL, service_org_id VARCHAR(255) NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-19::apiman (generated)
-CREATE TABLE services (id VARCHAR(255) NOT NULL, created_by VARCHAR(255) NOT NULL, created_on datetime NOT NULL, description VARCHAR(512) NULL, name VARCHAR(255) NOT NULL, organization_id VARCHAR(255) NOT NULL);
+CREATE TABLE services (id VARCHAR(255) NOT NULL, created_by VARCHAR(255) NOT NULL, created_on timestamp NOT NULL, description VARCHAR(512) NULL, name VARCHAR(255) NOT NULL, organization_id VARCHAR(255) NOT NULL, num_published INT NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-20::apiman (generated)
 CREATE TABLE svc_gateways (service_version_id BIGINT NOT NULL, gateway_id VARCHAR(255) NOT NULL);
@@ -77,6 +77,9 @@ CREATE TABLE svc_plans (service_version_id BIGINT NOT NULL, plan_id VARCHAR(255)
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-22::apiman (generated)
 CREATE TABLE users (username VARCHAR(255) NOT NULL, email VARCHAR(255) NULL, full_name VARCHAR(255) NULL, joined_on datetime NULL);
+
+--  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/010-apiman-manager-api.db.tables.changelog.xml::1436469846462-23::apiman (generated)
+CREATE TABLE downloads (id VARCHAR(255) NOT NULL, type VARCHAR(255) NULL, path VARCHAR(255) NULL, expires timestamp NULL);
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/050-apiman-manager-api.db.data.changelog.xml::1434686531709-1::apiman
 INSERT INTO gateways (id, configuration, created_by, created_on, description, modified_by, modified_on, name, type) VALUES ('TheGateway', '$CRYPT::PmrNC1m25oGSO8fC3XnxKSepmQsbxEZCldn+hYi9bQ10m8m4tEOHYU7gz5w2hcY2cMRPB3Rw+4FZYoeX0n3qEvyk+2Yf+ym3nKw3UtmtHViHLibBzWPY+8OTtJlZVb8dA8yd0TMkiwqk1WGHLSbyjmQujZ07RBK9wkwDahYwQEw=', 'admin', '2015-06-18 17:56:58.083', 'This is the gateway.', 'admin', '2015-06-18 17:56:58.083', 'The Gateway', 'REST');
@@ -90,10 +93,6 @@ INSERT INTO pd_templates (policydef_id, language, template) VALUES ('BASICAuthen
 
 INSERT INTO pd_templates (policydef_id, language, template) VALUES ('RateLimitingPolicy', NULL, 'Consumers are limited to @{limit} requests per @{granularity} per @{period}.');
 
-INSERT INTO pd_templates (policydef_id, language, template) VALUES ('QuotaPolicy', NULL, 'Consumers cannot exceed their quota of @{limit} requests per @{granularity} per @{period}.');
-
-INSERT INTO pd_templates (policydef_id, language, template) VALUES ('TransferQuotaPolicy', NULL, 'Consumers are limited to transferring @{limit} bytes per @{granularity} per @{period}.');
-
 INSERT INTO pd_templates (policydef_id, language, template) VALUES ('IgnoredResourcesPolicy', NULL, 'Requests matching any of the @{pathsToIgnore.size()} regular expressions provided will receive a 404 error code.');
 
 INSERT INTO pd_templates (policydef_id, language, template) VALUES ('URLRewritingPolicy', NULL, 'Responses will be modified by finding all text matching regular expression ''@{fromRegex}'' with ''@{toReplacement}''.');
@@ -101,6 +100,10 @@ INSERT INTO pd_templates (policydef_id, language, template) VALUES ('URLRewritin
 INSERT INTO pd_templates (policydef_id, language, template) VALUES ('CachingPolicy', NULL, 'API responses will be cached for @{ttl} seconds.');
 
 INSERT INTO pd_templates (policydef_id, language, template) VALUES ('AuthorizationPolicy', NULL, 'Appropriate authorization roles are required.  There are @{rules.size()} authorization rules defined.');
+
+INSERT INTO pd_templates (policydef_id, language, template) VALUES ('QuotaPolicy', NULL, 'Consumers cannot exceed their quota of @{limit} requests per @{granularity} per @{period}.');
+
+INSERT INTO pd_templates (policydef_id, language, template) VALUES ('TransferQuotaPolicy', NULL, 'Consumers are limited to transferring @{limit} bytes per @{granularity} per @{period}.');
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/050-apiman-manager-api.db.data.changelog.xml::1434686531709-3::apiman
 INSERT INTO permissions (role_id, permissions) VALUES ('OrganizationOwner', 1);
@@ -152,11 +155,7 @@ INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id,
 
 INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('BASICAuthenticationPolicy', 'Enables HTTP BASIC Authentication on a service.  Some configuration required.', NULL, 'Default', 'lock', 'BASIC Authentication Policy', NULL, 'class:io.apiman.gateway.engine.policies.BasicAuthenticationPolicy');
 
-INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('RateLimitingPolicy', 'Enforces rate configurable request rate limits on a service.  This ensures that consumers can''t overload a service with too many requests.', NULL, 'Default', 'tachometer', 'Rate Limiting Policy', NULL, 'class:io.apiman.gateway.engine.policies.RateLimitingPolicy');
-
-INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('QuotaPolicy', 'Provides a way to limit the total number of requests that can be sent to an API.', NULL, 'Default', 'exchange', 'Quota Policy', NULL, 'class:io.apiman.gateway.engine.policies.QuotaPolicy');
-
-INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('TransferQuotaPolicy', 'Provides a way to limit the total number of bytes that can be transferred from (or to) an API.', NULL, 'Default', 'download', 'Transfer Quota Policy', NULL, 'class:io.apiman.gateway.engine.policies.TransferQuotaPolicy');
+INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('RateLimitingPolicy', 'Enforces rate configurable request rate limits on a service.  This ensures that consumers can''t overload a service with too many requests.', NULL, 'Default', 'sliders', 'Rate Limiting Policy', NULL, 'class:io.apiman.gateway.engine.policies.RateLimitingPolicy');
 
 INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('IgnoredResourcesPolicy', 'Requests satisfying the provided regular expression will be ignored.', NULL, 'Default', 'eye-slash', 'Ignored Resources Policy', NULL, 'class:io.apiman.gateway.engine.policies.IgnoredResourcesPolicy');
 
@@ -165,6 +164,10 @@ INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id,
 INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('CachingPolicy', 'Allows caching of API responses in the Gateway to reduce overall traffic to the back-end API.', NULL, 'Default', 'hdd-o', 'Caching Policy', NULL, 'class:io.apiman.gateway.engine.policies.CachingPolicy');
 
 INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('AuthorizationPolicy', 'Enables fine grained authorization to API resources based on authenticated user roles.', NULL, 'Default', 'users', 'Authorization Policy', NULL, 'class:io.apiman.gateway.engine.policies.AuthorizationPolicy');
+
+INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('QuotaPolicy', 'Provides a way to limit the total number of requests that can be sent to an API.', NULL, 'Default', 'exchange', 'Quota Policy', NULL, 'class:io.apiman.gateway.engine.policies.QuotaPolicy');
+
+INSERT INTO policydefs (id, description, form, form_type, icon, name, plugin_id, policy_impl) VALUES ('TransferQuotaPolicy', 'Provides a way to limit the total number of bytes that can be transferred from (or to) an API.', NULL, 'Default', 'download', 'Transfer Quota Policy', NULL, 'class:io.apiman.gateway.engine.policies.TransferQuotaPolicy');
 
 --  Changeset c:/Users/ewittman/git/apiman/apiman/distro/ddl/src/main/liquibase/current/050-apiman-manager-api.db.data.changelog.xml::1434686531709-5::apiman
 INSERT INTO roles (id, auto_grant, created_by, created_on, description, name) VALUES ('OrganizationOwner', 1, 'admin', '2015-06-18 17:56:57.496', 'Automatically granted to the user who creates an Organization.  Grants all privileges.', 'Organization Owner');

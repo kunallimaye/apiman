@@ -31,7 +31,7 @@
       <artifactId>cdi-api</artifactId>
       <scope>provided</scope>
     </dependency>
-    
+
     <!-- Third Party Libs -->
     <dependency>
       <groupId>org.elasticsearch</groupId>
@@ -41,7 +41,15 @@
       <groupId>io.searchbox</groupId>
       <artifactId>jest</artifactId>
     </dependency>
-    
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpasyncclient</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore-nio</artifactId>
+    </dependency>
+
     <!-- Test Libs -->
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -63,7 +71,7 @@
         <extensions>true</extensions>
         <configuration>
           <instructions>
-            <Import-Package>io.apiman.manager.api.beans.idm,!javax.enterprise.context,!javax.enterprise.inject,!javax.inject,*</Import-Package>
+            <Import-Package>!javax.enterprise.context,!javax.enterprise.inject,!javax.inject,*</Import-Package>
           </instructions>
         </configuration>
       </plugin>

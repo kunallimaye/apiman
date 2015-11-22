@@ -37,6 +37,7 @@
     <test name="Create Service Version (duplicate)">test-plan-data/services/versions/009_create-version-duplicate.resttest</test>
     <test name="Create Service 5">test-plan-data/services/versions/010_create-service-5-with-init.resttest</test>
     <test name="Verify Service 5">test-plan-data/services/versions/011_get-svc-5-version-7.0.resttest</test>
+    <test name="Update Version 1.0 (Invalid Endpoint)">test-plan-data/services/versions/012_update-version-1.0-invalid.resttest</test>
   </testGroup>
 
   <!-- Test service plans -->
@@ -74,6 +75,7 @@
   <!-- Publishing -->
   <testGroup name="Publish Services">
     <test name="Publish Service 1">test-plan-data/services/publish/001_publish-service-1.resttest</test>
+    <test name="Get Service 1 [published]">test-plan-data/services/publish/002_get-service-1.resttest</test>
   </testGroup>
 
   <!-- Auditing -->
@@ -106,6 +108,17 @@
     <test name="List Policies [3]">test-plan-data/services/cloning/004_list-policies.resttest</test>
     <test name="List Policies [4]">test-plan-data/services/cloning/005_get-cloned-service-definition.resttest</test>
     <test name="Clone 1.0 --> 2.1 (with fields)">test-plan-data/services/cloning/006_clone-version-2.1-with-fields.resttest</test>
+  </testGroup>
+
+  <!-- Service Status -->
+  <testGroup name="Service Status">
+    <test name="Create Service Foo">test-plan-data/services/status/001_create-service-foo.resttest</test>
+    <test name="Create Service Foo, Version 1.0">test-plan-data/services/status/002_create-version-1.0.resttest</test>
+    <test name="Service Status (Created) [1]">test-plan-data/services/status/003_get-foo-status.resttest</test>
+    <test name="Update Service Foo Endpoint">test-plan-data/services/status/004_update-version-1.0.resttest</test>
+    <test name="Service Status (Created) [2]">test-plan-data/services/status/005_get-foo-status-2.resttest</test>
+    <test name="Update Service Foo (Public)">test-plan-data/services/status/006_update-version-1.0-public.resttest</test>
+    <test name="Service Status (Ready) [3]">test-plan-data/services/status/007_get-foo-status-3.resttest</test>
   </testGroup>
 
 </testPlan>

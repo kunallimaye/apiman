@@ -15,7 +15,6 @@
  */
 package io.apiman.common.util;
 
-
 public class ApimanPathUtils {
 
     public static final String X_API_VERSION_HEADER = "X-API-Version"; //$NON-NLS-1$
@@ -54,7 +53,7 @@ public class ApimanPathUtils {
                     StringBuilder resource = new StringBuilder();
                     for (int idx = minParts; idx < split.length; idx++) {
                         resource.append('/');
-                        resource.append(split[idx]);
+                        resource.append(urlEncode(split[idx]));
                     }
                     if (pathInfo.endsWith("/")) { //$NON-NLS-1$
                         resource.append('/');
@@ -64,6 +63,14 @@ public class ApimanPathUtils {
             }
         }
         return info;
+    }
+
+    /**
+     * @param string
+     */
+    @SuppressWarnings("nls")
+    public static String urlEncode(String string) {
+        return string.replace("#", "%23");
     }
 
     /**

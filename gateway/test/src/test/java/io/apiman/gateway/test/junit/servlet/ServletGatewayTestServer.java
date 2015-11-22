@@ -15,21 +15,18 @@
  */
 package io.apiman.gateway.test.junit.servlet;
 
-import java.io.File;
-import java.util.Iterator;
-
-import org.codehaus.jackson.JsonNode;
-
 import io.apiman.gateway.engine.components.IBufferFactoryComponent;
 import io.apiman.gateway.engine.components.ICacheStoreComponent;
 import io.apiman.gateway.engine.components.IHttpClientComponent;
 import io.apiman.gateway.engine.components.IPolicyFailureFactoryComponent;
 import io.apiman.gateway.engine.components.IRateLimiterComponent;
 import io.apiman.gateway.engine.components.ISharedStateComponent;
+import io.apiman.gateway.engine.components.jdbc.IJdbcComponent;
 import io.apiman.gateway.engine.es.ESRateLimiterComponent;
 import io.apiman.gateway.engine.es.ESRegistry;
 import io.apiman.gateway.engine.es.ESSharedStateComponent;
 import io.apiman.gateway.engine.impl.ByteBufferFactoryComponent;
+import io.apiman.gateway.engine.impl.DefaultJdbcComponent;
 import io.apiman.gateway.engine.impl.DefaultPluginRegistry;
 import io.apiman.gateway.engine.impl.InMemoryCacheStoreComponent;
 import io.apiman.gateway.engine.impl.InMemoryRateLimiterComponent;
@@ -47,6 +44,11 @@ import io.apiman.gateway.test.server.TestMetrics;
 import io.apiman.test.common.echo.EchoServer;
 import io.apiman.test.common.resttest.IGatewayTestServer;
 
+import java.io.File;
+import java.util.Iterator;
+
+import org.codehaus.jackson.JsonNode;
+
 /**
  * A servlet version of the gateway test server.
  *
@@ -56,8 +58,8 @@ import io.apiman.test.common.resttest.IGatewayTestServer;
 public class ServletGatewayTestServer implements IGatewayTestServer {
 
     protected static final int ECHO_PORT = 7654;
-    protected static final int GATEWAY_PORT = 8080;
-    protected static final int GATEWAY_PROXY_PORT = 8081;
+    protected static final int GATEWAY_PORT = 6060;
+    protected static final int GATEWAY_PROXY_PORT = 6061;
     protected static final boolean USE_PROXY = false; // if you set this to true you must start a tcp proxy on 8081
 
     private EchoServer echoServer = new EchoServer(ECHO_PORT);
@@ -114,6 +116,8 @@ public class ServletGatewayTestServer implements IGatewayTestServer {
                     InMemoryRateLimiterComponent.class.getName());
             System.setProperty(WarEngineConfig.APIMAN_GATEWAY_COMPONENT_PREFIX + ICacheStoreComponent.class.getSimpleName(),
                     InMemoryCacheStoreComponent.class.getName());
+            System.setProperty(WarEngineConfig.APIMAN_GATEWAY_COMPONENT_PREFIX + IJdbcComponent.class.getSimpleName(),
+                    DefaultJdbcComponent.class.getName());
         } else if (GatewayTestUtils.getTestType() == GatewayTestType.es) {
             // Configure to run with elasticsearch components
             /////////////////////////////////////////////////

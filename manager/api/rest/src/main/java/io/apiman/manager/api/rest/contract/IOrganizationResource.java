@@ -53,9 +53,9 @@ import io.apiman.manager.api.beans.services.NewServiceDefinitionBean;
 import io.apiman.manager.api.beans.services.NewServiceVersionBean;
 import io.apiman.manager.api.beans.services.ServiceBean;
 import io.apiman.manager.api.beans.services.ServiceVersionBean;
+import io.apiman.manager.api.beans.services.ServiceVersionStatusBean;
 import io.apiman.manager.api.beans.services.UpdateServiceBean;
 import io.apiman.manager.api.beans.services.UpdateServiceVersionBean;
-import io.apiman.manager.api.beans.summary.ApiRegistryBean;
 import io.apiman.manager.api.beans.summary.ApplicationSummaryBean;
 import io.apiman.manager.api.beans.summary.ApplicationVersionSummaryBean;
 import io.apiman.manager.api.beans.summary.ContractSummaryBean;
@@ -92,6 +92,7 @@ import io.apiman.manager.api.rest.contract.exceptions.ServiceNotFoundException;
 import io.apiman.manager.api.rest.contract.exceptions.ServiceVersionAlreadyExistsException;
 import io.apiman.manager.api.rest.contract.exceptions.ServiceVersionNotFoundException;
 import io.apiman.manager.api.rest.contract.exceptions.UserNotFoundException;
+import io.swagger.annotations.Api;
 
 import java.util.List;
 
@@ -113,6 +114,7 @@ import javax.ws.rs.core.Response;
  * @author eric.wittmann@redhat.com
  */
 @Path("organizations")
+@Api
 public interface IOrganizationResource {
 
     /**
@@ -478,22 +480,33 @@ public interface IOrganizationResource {
      * by this endpoint could potentially be included directly in a client application
      * as a way to lookup endpoint information for the APIs it wishes to consume.  This
      * variant of the API Registry is formatted as JSON data.
+     * 
+     * Note that, optionally, you can generate a temporary download link instead of 
+     * getting the registry file directly.  To do this, simply pass download=true as 
+     * a query parameter.  The result will then be a JSON object with information about
+     * the temporary download link.  The ID of the download can then be used when making
+     * a call to the /downloads/{downloadId} endpoint to fetch the actual content.
+     * 
      * @summary Get API Registry (JSON)
      * @param organizationId The Organization ID.
      * @param applicationId The Application ID.
      * @param version The Application version.
+     * @param download Query parameter set to true in order to generate a download link.
      * @statuscode 200 If the API Registry information is successfully returned.
      * @statuscode 404 If the Application does not exist.
-     * @return API Registry information.
+     * @return API Registry information or temporary download information.
      * @throws ApplicationNotFoundException when trying to get, update, or delete an application that does not exist
      * @throws NotAuthorizedException when the user attempts to do or see something that they are not authorized (do not have permission) to
      */
     @GET
     @Path("{organizationId}/applications/{applicationId}/versions/{version}/apiregistry/json")
     @Produces(MediaType.APPLICATION_JSON)
-    public ApiRegistryBean getApiRegistryJSON(@PathParam("organizationId") String organizationId,
-            @PathParam("applicationId") String applicationId, @PathParam("version") String version)
-            throws ApplicationNotFoundException, NotAuthorizedException;
+    public Response getApiRegistryJSON(@PathParam("organizationId") String organizationId,
+            @PathParam("applicationId") String applicationId, @PathParam("version") String version,
+            @QueryParam("download") String download)
+                    throws ApplicationNotFoundException, NotAuthorizedException;
+    public Response getApiRegistryJSON(String organizationId, String applicationId, String version,
+            boolean hasPermission) throws ApplicationNotFoundException, NotAuthorizedException;
 
     /**
      * Use this endpoint to get registry style information about all Services that this
@@ -502,10 +515,18 @@ public interface IOrganizationResource {
      * by this endpoint could potentially be included directly in a client application
      * as a way to lookup endpoint information for the APIs it wishes to consume.  This
      * variant of the API Registry is formatted as XML data.
+     * 
+     * Note that, optionally, you can generate a temporary download link instead of 
+     * getting the registry file directly.  To do this, simply pass download=true as 
+     * a query parameter.  The result will then be a JSON object with information about
+     * the temporary download link.  The ID of the download can then be used when making
+     * a call to the /downloads/{downloadId} endpoint to fetch the actual content.
+     * 
      * @summary Get API Registry (XML)
      * @param organizationId The Organization ID.
      * @param applicationId The Application ID.
      * @param version The Application version.
+     * @param download Query parameter set to true in order to generate a download link.
      * @statuscode 200 If the API Registry information is successfully returned.
      * @statuscode 404 If the Application does not exist.
      * @return API Registry information.
@@ -514,10 +535,13 @@ public interface IOrganizationResource {
      */
     @GET
     @Path("{organizationId}/applications/{applicationId}/versions/{version}/apiregistry/xml")
-    @Produces(MediaType.APPLICATION_XML)
-    public ApiRegistryBean getApiRegistryXML(@PathParam("organizationId") String organizationId,
-            @PathParam("applicationId") String applicationId, @PathParam("version") String version)
-            throws ApplicationNotFoundException, NotAuthorizedException;
+    @Produces({ MediaType.APPLICATION_XML, MediaType.APPLICATION_JSON })
+    public Response getApiRegistryXML(@PathParam("organizationId") String organizationId,
+            @PathParam("applicationId") String applicationId, @PathParam("version") String version,
+            @QueryParam("download") String download)
+                    throws ApplicationNotFoundException, NotAuthorizedException;
+    public Response getApiRegistryXML(String organizationId, String applicationId, String version,
+            boolean hasPermission) throws ApplicationNotFoundException, NotAuthorizedException;
 
     /**
      * Use this endpoint to break all contracts between this application and its services.
@@ -861,6 +885,28 @@ public interface IOrganizationResource {
     @Path("{organizationId}/services/{serviceId}/versions/{version}")
     @Produces(MediaType.APPLICATION_JSON)
     public ServiceVersionBean getServiceVersion(@PathParam("organizationId") String organizationId,
+            @PathParam("serviceId") String serviceId, @PathParam("version") String version)
+            throws ServiceVersionNotFoundException, NotAuthorizedException;
+    
+    /**
+     * Use this endpoint to get detailed status information for a single version of a 
+     * service.  This is useful to figure out why a service is not yet in the 'Ready'
+     * state (which is required before it can be published to a Gateway).
+     * 
+     * @summary Get Service Version Status
+     * @param organizationId The Organization ID.
+     * @param serviceId The Service ID.
+     * @param version The Service version.
+     * @statuscode 200 If the status information is successfully returned.
+     * @statuscode 404 If the Service version does not exist.
+     * @return Status information about a service version.
+     * @throws ServiceVersionNotFoundException when trying to get, update, or delete a service version that does not exist
+     * @throws NotAuthorizedException when the user attempts to do or see something that they are not authorized (do not have permission) to
+     */
+    @GET
+    @Path("{organizationId}/services/{serviceId}/versions/{version}/status")
+    @Produces(MediaType.APPLICATION_JSON)
+    public ServiceVersionStatusBean getServiceVersionStatus(@PathParam("organizationId") String organizationId,
             @PathParam("serviceId") String serviceId, @PathParam("version") String version)
             throws ServiceVersionNotFoundException, NotAuthorizedException;
 

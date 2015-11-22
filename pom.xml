@@ -57,6 +57,16 @@
       </roles>
       <timezone>+1</timezone>
     </developer>
+    <developer>
+      <name>Rachel Yordan</name>
+      <id>ryordan</id>
+      <email>ryordan@redhat.com</email>
+      <organization>Red Hat</organization>
+      <roles>
+        <role>Developer</role>
+      </roles>
+      <timezone>-5</timezone>
+    </developer>
   </developers>
 
   <properties>
@@ -77,13 +87,15 @@
     <version.buildnumber.plugin>1.3</version.buildnumber.plugin>
     <version.bundle.plugin>2.5.3</version.bundle.plugin>
     <version.clean.plugin>2.6</version.clean.plugin>
-    <version.com.qmino.miredot-plugin>1.5.1</version.com.qmino.miredot-plugin>
+    <version.com.qmino.miredot-plugin>1.6.2</version.com.qmino.miredot-plugin>
     <version.compiler.plugin>3.2</version.compiler.plugin>
     <version.dependency.plugin>2.9</version.dependency.plugin>
     <version.deploy.plugin>2.8.2</version.deploy.plugin>
     <version.install.plugin>2.5.2</version.install.plugin>
     <version.jar.plugin>2.5</version.jar.plugin>
     <version.javadoc.plugin>2.10.1</version.javadoc.plugin>
+    <version.maven-gpg-plugin.plugin>1.5</version.maven-gpg-plugin.plugin>
+    <version.nexus-staging-maven-plugin.plugin>1.6.3</version.nexus-staging-maven-plugin.plugin>
     <version.resources.plugin>2.7</version.resources.plugin>
     <version.source.plugin>2.4</version.source.plugin>
     <version.surefire.plugin>2.17</version.surefire.plugin>
@@ -100,19 +112,20 @@
     <version.com.google.gwt>2.5.1</version.com.google.gwt>
     <version.com.h2database>1.3.168</version.com.h2database>
     <version.com.squareup.okhttp>2.4.0</version.com.squareup.okhttp>
-    <version.commons-codec>1.9</version.commons-codec>
+    <version.commons-codec>1.4</version.commons-codec>
     <version.commons-collections>3.2.1</version.commons-collections>
     <version.commons-configuration>1.6</version.commons-configuration>
     <version.commons-dbcp>1.4</version.commons-dbcp>
-    <version.commons-io>2.4</version.commons-io>
+    <version.commons-io>2.1</version.commons-io>
     <version.commons-lang>2.6</version.commons-lang>
     <version.commons-pool>1.6</version.commons-pool>
-    <version.io.apiman.quickstarts>1.2.0.Alpha3</version.io.apiman.quickstarts>
+    <version.com.zaxxer>2.4.0</version.com.zaxxer>
     <version.io.searchbox.jest>0.1.6</version.io.searchbox.jest>
     <version.io.undertow>1.0.1.Final</version.io.undertow>
     <version.javax.enterprise>1.2</version.javax.enterprise>
+    <version.javax.servlet-api>3.1.0</version.javax.servlet-api>
     <version.javax.ws.rs-api>2.0</version.javax.ws.rs-api>
-    <version.joda-time>2.8.1</version.joda-time>
+    <version.joda-time>1.6.2</version.joda-time>
     <version.junit>4.11</version.junit>
     <version.org.apache.commons.commons-lang3>3.3.2</version.org.apache.commons.commons-lang3>
     <version.org.apache.commons.commons-pool2>2.2</version.org.apache.commons.commons-pool2>
@@ -120,33 +133,36 @@
     <version.org.apache.felix.scr.annotations>1.7.0</version.org.apache.felix.scr.annotations>
     <version.org.apache.geronimo.specs.geronimo-jta_1.1_spec>1.1.1</version.org.apache.geronimo.specs.geronimo-jta_1.1_spec>
     <version.org.apache.geronimo.specs.geronimo-servlet_3.0_spec>1.0</version.org.apache.geronimo.specs.geronimo-servlet_3.0_spec>
-    <version.org.apache.httpcomponents.httpclient>4.5</version.org.apache.httpcomponents.httpclient>
-    <version.org.apache.httpcomponents.httpcore>4.4.1</version.org.apache.httpcomponents.httpcore>
+    <version.org.apache.httpcomponents.httpclient>4.3.6</version.org.apache.httpcomponents.httpclient>
+    <version.org.apache.httpcomponents.httpcore>4.3.3</version.org.apache.httpcomponents.httpcore>
+    <version.org.apache.httpcomponents.asyncclient>4.0.2</version.org.apache.httpcomponents.asyncclient>
+    <version.org.apache.httpcomponents.httpcore-nio>4.3.2</version.org.apache.httpcomponents.httpcore-nio>
     <version.org.apache.logging.log4j>2.2</version.org.apache.logging.log4j>
     <version.org.apache.servicemix.bundles.antlr>2.7.7_5</version.org.apache.servicemix.bundles.antlr>
     <version.org.apache.servicemix.bundles.cglib>3.0_1</version.org.apache.servicemix.bundles.cglib>
     <version.org.apache.servicemix.bundles.dom4j>1.6.1_5</version.org.apache.servicemix.bundles.dom4j>
-    <version.org.codehaus.jackson>1.9.13</version.org.codehaus.jackson>
+    <version.org.codehaus.jackson>1.9.9</version.org.codehaus.jackson>
     <version.org.eclipse.jetty>9.2.10.v20150310</version.org.eclipse.jetty>
     <version.org.elasticsearch>1.7.2</version.org.elasticsearch>
-    <version.org.hibernate.commons.annotations>4.0.4.Final</version.org.hibernate.commons.annotations>
+    <version.org.hibernate.commons.annotations>4.0.2.Final</version.org.hibernate.commons.annotations>
     <version.org.hibernate.javax.persistence.hibernate-jpa-2.1-api>1.0.0.Final</version.org.hibernate.javax.persistence.hibernate-jpa-2.1-api>
-    <version.org.hibernate>4.3.7.Final</version.org.hibernate>
-    <version.org.infinispan>6.0.2.Final</version.org.infinispan>
-    <version.org.jboss.jandex>1.2.0.Final</version.org.jboss.jandex>
+    <version.org.hibernate>4.2.20.Final</version.org.hibernate>
+    <version.org.infinispan>5.2.11.Final</version.org.infinispan>
+    <version.org.jboss.jandex>1.2.2.Final</version.org.jboss.jandex>
     <version.org.jboss.logging.jboss-logging>3.1.4.GA</version.org.jboss.logging.jboss-logging>
-    <version.org.jboss.resteasy>2.3.7.Final</version.org.jboss.resteasy>
+    <version.org.jboss.resteasy>2.3.10.Final</version.org.jboss.resteasy>
     <version.org.jboss.spec.javax.servlet.jboss-servlet-api_3.0_spec>1.0.2.Final</version.org.jboss.spec.javax.servlet.jboss-servlet-api_3.0_spec>
-    <version.org.jboss.weld.weld>2.2.14.Final</version.org.jboss.weld.weld>
+    <version.org.jboss.weld.weld>2.3.0.Final</version.org.jboss.weld.weld>
     <version.org.keycloak>1.2.0.Final</version.org.keycloak>
     <version.org.mockito>1.9.5</version.org.mockito>
     <version.org.mvel>2.2.2.Final</version.org.mvel>
-    <version.org.osgi>4.3.1</version.org.osgi>
+    <version.org.osgi>4.2.0</version.org.osgi>
     <version.org.ow2.asm>4.0</version.org.ow2.asm>
-    <version.org.picketbox>4.0.21.Final</version.org.picketbox>
+    <version.org.picketbox>4.1.1.Final</version.org.picketbox>
     <version.org.slf4j>1.7.2</version.org.slf4j>
+    <version.io.swagger>1.5.3</version.io.swagger>
     <version.xmlunit>1.6</version.xmlunit>
-    <version.io.vertx>3.1.0-SNAPSHOT</version.io.vertx>
+    <version.io.vertx>3.1.0</version.io.vertx>
   </properties>
 
   <dependencyManagement>
@@ -204,11 +220,6 @@
       </dependency>
       <dependency>
         <groupId>${project.groupId}</groupId>
-        <artifactId>apiman-manager-api-jpa-idm</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
         <artifactId>apiman-manager-api-es</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -216,6 +227,11 @@
         <groupId>${project.groupId}</groupId>
         <artifactId>apiman-manager-api-core</artifactId>
         <version>${project.version}</version>
+      </dependency>
+      <dependency>
+	<groupId>${project.groupId}</groupId>
+	<artifactId>apiman-manager-api-export-import-api</artifactId>
+	<version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>${project.groupId}</groupId>
@@ -350,9 +366,9 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
-	<groupId>${project.groupId}</groupId>
-	<artifactId>apiman-gateway-engine-prometheus</artifactId>
-	<version>${project.version}</version>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>apiman-gateway-engine-prometheus</artifactId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>${project.groupId}</groupId>
@@ -403,9 +419,9 @@
         <version>${project.version}</version>
       </dependency>
       <dependency>
-	<groupId>${project.groupId}</groupId>
-	<artifactId>apiman-gateway-platforms-vertx3-common</artifactId>
-	<version>${project.version}</version>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>apiman-gateway-platforms-vertx3-common</artifactId>
+        <version>${project.version}</version>
       </dependency>
       <dependency>
         <groupId>${project.groupId}</groupId>
@@ -491,14 +507,6 @@
         <classifier>overlay</classifier>
       </dependency>
 
-      <!-- apiman Quickstarts -->
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>apiman-quickstarts</artifactId>
-        <version>${version.io.apiman.quickstarts}</version>
-        <type>zip</type>
-      </dependency>
-
       <!-- Undertow -->
       <dependency>
         <groupId>io.undertow</groupId>
@@ -582,6 +590,11 @@
 
       <!-- Third Party Libraries -->
       <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>${version.com.zaxxer}</version>
+      </dependency>
+      <dependency>
         <groupId>org.elasticsearch</groupId>
         <artifactId>elasticsearch</artifactId>
         <version>${version.org.elasticsearch}</version>
@@ -610,6 +623,11 @@
         <groupId>org.apache.httpcomponents</groupId>
         <artifactId>httpcore-osgi</artifactId>
         <version>${version.org.apache.httpcomponents.httpcore}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpasyncclient</artifactId>
+        <version>${version.org.apache.httpcomponents.asyncclient}</version>
       </dependency>
       <dependency>
         <groupId>commons-io</groupId>
@@ -826,6 +844,11 @@
         <version>${version.org.apache.httpcomponents.httpcore}</version>
       </dependency>
       <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpcore-nio</artifactId>
+        <version>${version.org.apache.httpcomponents.httpcore-nio}</version>
+      </dependency>
+      <dependency>
         <groupId>com.squareup.okhttp</groupId>
         <artifactId>okhttp</artifactId>
         <version>${version.com.squareup.okhttp}</version>
@@ -878,6 +901,11 @@
         <version>${version.org.jboss.spec.javax.servlet.jboss-servlet-api_3.0_spec}</version>
       </dependency>
       <dependency>
+        <groupId>javax.servlet</groupId>
+        <artifactId>javax.servlet-api</artifactId>
+        <version>${version.javax.servlet-api}</version>
+      </dependency>
+      <dependency>
         <groupId>org.hibernate.javax.persistence</groupId>
         <artifactId>hibernate-jpa-2.1-api</artifactId>
         <version>${version.org.hibernate.javax.persistence.hibernate-jpa-2.1-api}</version>
@@ -921,24 +949,36 @@
         <version>${version.io.vertx}</version>
       </dependency>
       <dependency>
-	<groupId>io.vertx</groupId>
-	<artifactId>vertx-service-proxy</artifactId>
-	<version>${version.io.vertx}</version>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-service-proxy</artifactId>
+        <version>${version.io.vertx}</version>
       </dependency>
       <dependency>
-	<groupId>io.vertx</groupId>
-	<artifactId>vertx-codegen</artifactId>
-	<version>${version.io.vertx}</version>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-codegen</artifactId>
+        <version>${version.io.vertx}</version>
       </dependency>
       <dependency>
-	<groupId>io.vertx</groupId>
-	<artifactId>vertx-web</artifactId>
-	<version>${version.io.vertx}</version>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-web</artifactId>
+        <version>${version.io.vertx}</version>
       </dependency>
       <dependency>
-	<groupId>io.vertx</groupId>
-	<artifactId>vertx-auth-shiro</artifactId>
-	<version>${version.io.vertx}</version>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-jdbc-client</artifactId>
+        <version>${version.io.vertx}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.vertx</groupId>
+        <artifactId>vertx-unit</artifactId>
+        <version>${version.io.vertx}</version>
+      </dependency>
+
+      <!-- Swagger 2.0 -->
+      <dependency>
+        <groupId>io.swagger</groupId>
+        <artifactId>swagger-jaxrs</artifactId>
+        <version>${version.io.swagger}</version>
       </dependency>
 
       <!-- Test -->
@@ -1063,7 +1103,7 @@
         </plugin>
         <plugin>
           <groupId>io.vertx</groupId>
-	      <artifactId>vertx-maven-plugin</artifactId>
+          <artifactId>vertx-maven-plugin</artifactId>
           <version>${version.vertx.plugin}</version>
           <dependencies>
             <dependency>
@@ -1083,7 +1123,6 @@
             </dependency>
           </dependencies>
         </plugin>
-
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
@@ -1108,6 +1147,16 @@
           <groupId>com.qmino</groupId>
           <artifactId>miredot-plugin</artifactId>
           <version>${version.com.qmino.miredot-plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.sonatype.plugins</groupId>
+          <artifactId>nexus-staging-maven-plugin</artifactId>
+          <version>${version.nexus-staging-maven-plugin.plugin}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <version>${version.maven-gpg-plugin.plugin}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -1160,7 +1209,7 @@
               <value>${basedir}/target</value>
             </property>
           </systemProperties>
-          <argLine>-Xmx368m -XX:MaxPermSize=128m</argLine>
+          <argLine>-Xmx512m -XX:MaxPermSize=256m</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -1232,7 +1281,7 @@
         <updatePolicy>daily</updatePolicy>
       </snapshots>
     </repository>
-    
+
     <repository>
       <id>snapshots-repo</id>
       <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
@@ -1264,15 +1313,9 @@
   </pluginRepositories>
 
   <distributionManagement>
-    <repository>
-      <id>jboss-releases-repository</id>
-      <name>JBoss Releases Repository</name>
-      <url>${jboss.releases.repo.url}</url>
-    </repository>
     <snapshotRepository>
-      <id>jboss-snapshots-repository</id>
-      <name>JBoss Snapshots Repository</name>
-      <url>${jboss.snapshots.repo.url}</url>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
 
@@ -1295,6 +1338,36 @@
           <url>http://nexus.qmino.com/content/repositories/miredot</url>
         </pluginRepository>
       </pluginRepositories>
+    </profile>
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <extensions>true</extensions>
+            <configuration>
+              <serverId>ossrh</serverId>
+              <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>true</autoReleaseAfterClose>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
     </profile>
     <profile>
       <id>java8</id>

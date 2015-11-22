@@ -141,11 +141,8 @@ public class ManagerApiMicroService {
             public Resource getResource(String path) throws MalformedURLException {
                 Resource resource = null;
 
-                if (path == null) {
-                    return null;
-                }
-                if (!path.startsWith("/apimanui")) {
-                    return null;
+                if (path == null || path.equals("/") || path.equals("/index.html")) {
+                    path = "/index.html";
                 }
                 if (path.startsWith("/apimanui/api-manager") || path.equals("/apimanui") || path.equals("/apimanui/")) {
                     path = "/apimanui/index.html";
@@ -190,8 +187,9 @@ public class ManagerApiMicroService {
 
     /**
      * @param apiManServer
+     * @throws Exception 
      */
-    protected void addSecurityHandler(ServletContextHandler apiManServer) {
+    protected void addSecurityHandler(ServletContextHandler apiManServer) throws Exception {
         apiManServer.setSecurityHandler(createSecurityHandler());
     }
 
@@ -199,13 +197,24 @@ public class ManagerApiMicroService {
      * @param apiManServer
      */
     protected void addAuthFilter(ServletContextHandler apiManServer) {
-        apiManServer.addFilter(AuthenticationFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/actions/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/system/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/currentuser/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/gateways/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/organizations/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/permissions/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/plugins/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/policyDefs/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/roles/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/search/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/users/*", EnumSet.of(DispatcherType.REQUEST));
     }
 
     /**
      * Creates a basic auth security handler.
+     * @throws Exception 
      */
-    protected SecurityHandler createSecurityHandler() {
+    protected SecurityHandler createSecurityHandler() throws Exception {
         HashLoginService l = new HashLoginService();
         for (User user : Users.getUsers()) {
             l.putUser(user.getId(), Credential.getCredential(user.getPassword()), user.getRolesAsArray());

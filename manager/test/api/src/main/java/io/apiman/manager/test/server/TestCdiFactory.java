@@ -15,6 +15,34 @@
  */
 package io.apiman.manager.test.server;
 
+import io.apiman.common.config.SystemPropertiesConfiguration;
+import io.apiman.manager.api.beans.idm.UserBean;
+import io.apiman.manager.api.beans.services.EndpointType;
+import io.apiman.manager.api.beans.summary.AvailableServiceBean;
+import io.apiman.manager.api.core.IApiKeyGenerator;
+import io.apiman.manager.api.core.IMetricsAccessor;
+import io.apiman.manager.api.core.INewUserBootstrapper;
+import io.apiman.manager.api.core.IPluginRegistry;
+import io.apiman.manager.api.core.IServiceCatalog;
+import io.apiman.manager.api.core.IStorage;
+import io.apiman.manager.api.core.IStorageQuery;
+import io.apiman.manager.api.core.UuidApiKeyGenerator;
+import io.apiman.manager.api.core.exceptions.StorageException;
+import io.apiman.manager.api.core.logging.ApimanLogger;
+import io.apiman.manager.api.core.logging.IApimanLogger;
+import io.apiman.manager.api.core.logging.StandardLoggerImpl;
+import io.apiman.manager.api.es.ESMetricsAccessor;
+import io.apiman.manager.api.es.EsStorage;
+import io.apiman.manager.api.jpa.IJpaProperties;
+import io.apiman.manager.api.jpa.JpaStorage;
+import io.apiman.manager.api.security.ISecurityContext;
+import io.apiman.manager.api.security.impl.DefaultSecurityContext;
+import io.apiman.manager.test.util.ManagerTestUtils;
+import io.apiman.manager.test.util.ManagerTestUtils.TestType;
+import io.searchbox.client.JestClient;
+import io.searchbox.client.JestClientFactory;
+import io.searchbox.client.config.HttpClientConfig;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -27,33 +55,6 @@ import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Named;
 
-import io.apiman.common.config.SystemPropertiesConfiguration;
-import io.apiman.manager.api.beans.services.EndpointType;
-import io.apiman.manager.api.beans.summary.AvailableServiceBean;
-import io.apiman.manager.api.core.IApiKeyGenerator;
-import io.apiman.manager.api.core.IIdmStorage;
-import io.apiman.manager.api.core.IMetricsAccessor;
-import io.apiman.manager.api.core.IPluginRegistry;
-import io.apiman.manager.api.core.IServiceCatalog;
-import io.apiman.manager.api.core.IStorage;
-import io.apiman.manager.api.core.IStorageQuery;
-import io.apiman.manager.api.core.UuidApiKeyGenerator;
-import io.apiman.manager.api.core.logging.ApimanLogger;
-import io.apiman.manager.api.core.logging.IApimanLogger;
-import io.apiman.manager.api.core.logging.StandardLoggerImpl;
-import io.apiman.manager.api.es.ESMetricsAccessor;
-import io.apiman.manager.api.es.EsStorage;
-import io.apiman.manager.api.jpa.IJpaProperties;
-import io.apiman.manager.api.jpa.JpaStorage;
-import io.apiman.manager.api.jpa.roles.JpaIdmStorage;
-import io.apiman.manager.api.security.ISecurityContext;
-import io.apiman.manager.api.security.impl.DefaultSecurityContext;
-import io.apiman.manager.test.util.ManagerTestUtils;
-import io.apiman.manager.test.util.ManagerTestUtils.TestType;
-import io.searchbox.client.JestClient;
-import io.searchbox.client.JestClientFactory;
-import io.searchbox.client.config.HttpClientConfig;
-
 /**
  * Attempt to create producer methods for CDI beans.
  *
@@ -63,6 +64,8 @@ import io.searchbox.client.config.HttpClientConfig;
 @SuppressWarnings("nls")
 @Named("ApimanLogFactory")
 public class TestCdiFactory {
+
+    private static final int JEST_TIMEOUT = 6000;
 
     @Produces @ApplicationScoped
     public static ISecurityContext provideSecurityContext(@New DefaultSecurityContext defaultSC) {
@@ -76,6 +79,15 @@ public class TestCdiFactory {
         return new StandardLoggerImpl().createLogger(klazz);
     }
 
+    @Produces @ApplicationScoped
+    public static INewUserBootstrapper provideNewUserBootstrapper() {
+        return new INewUserBootstrapper() {
+            @Override
+            public void bootstrapUser(UserBean user, IStorage storage) throws StorageException {
+                // Do nothing special.
+            }
+        };
+    }
 
     @Produces @ApplicationScoped
     public static IJpaProperties provideJpaProperties() {
@@ -154,19 +166,6 @@ public class TestCdiFactory {
         };
     }
 
-    @Produces @ApplicationScoped
-    public static IIdmStorage provideIdmStorage(@New JpaIdmStorage jpaIdmStorage, @New EsStorage esStorage) {
-        TestType testType = ManagerTestUtils.getTestType();
-        if (testType == TestType.jpa) {
-            return jpaIdmStorage;
-        } else if (testType == TestType.es) {
-            esStorage.initialize();
-            return new TestEsIdmStorageWrapper(ManagerApiTestServer.ES_CLIENT, esStorage);
-        } else {
-            throw new RuntimeException("Unexpected test type: " + testType);
-        }
-    }
-
     @Produces @ApplicationScoped @Named("storage")
     public static JestClient provideStorageJestClient() {
         TestType testType = ManagerTestUtils.getTestType();
@@ -188,8 +187,8 @@ public class TestCdiFactory {
 
             String connectionUrl = "http://" + host + ":" + port + "";
             JestClientFactory factory = new JestClientFactory();
-            factory.setHttpClientConfig(new HttpClientConfig.Builder(connectionUrl).multiThreaded(true)
-                    .build());
+            factory.setHttpClientConfig(new HttpClientConfig.Builder(connectionUrl).multiThreaded(true).
+                    connTimeout(JEST_TIMEOUT).readTimeout(JEST_TIMEOUT).build());
             return factory.getObject();
         } else {
             return null;

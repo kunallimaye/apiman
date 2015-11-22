@@ -88,6 +88,7 @@ public class ManagerApiTestServer {
     private Node node = null;
     //private Client client = null;
     private JestClient client = null;
+    private static final int JEST_TIMEOUT = 6000;
 
     /**
      * Constructor.
@@ -201,7 +202,7 @@ public class ManagerApiTestServer {
             String connectionUrl = "http://localhost:6500";
             JestClientFactory factory = new JestClientFactory();
             factory.setHttpClientConfig(new HttpClientConfig.Builder(connectionUrl).multiThreaded(true)
-                    .build());
+                    .connTimeout(JEST_TIMEOUT ).readTimeout(JEST_TIMEOUT).build());
             client = factory.getObject();
             ES_CLIENT = client;
         }
@@ -274,7 +275,7 @@ public class ManagerApiTestServer {
 //        apiManServer.addFilter(LocaleFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
         apiManServer.addFilter(ApimanCorsFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
         apiManServer.addFilter(DisableCachingFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
-        apiManServer.addFilter(AuthenticationFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
+        configureAuthentication(apiManServer);
         apiManServer.addFilter(DefaultSecurityContextFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
         apiManServer.addFilter(TransactionWatchdogFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
         apiManServer.addFilter(RootResourceFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
@@ -300,6 +301,23 @@ public class ManagerApiTestServer {
 
         // Add the web contexts to jetty
         handlers.addHandler(mockGatewayServer);
+    }
+
+    /**
+     * @param apiManServer
+     */
+    private void configureAuthentication(ServletContextHandler apiManServer) {
+        apiManServer.addFilter(AuthenticationFilter.class, "/actions/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/system/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/currentuser/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/gateways/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/organizations/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/permissions/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/plugins/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/policyDefs/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/roles/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/search/*", EnumSet.of(DispatcherType.REQUEST));
+        apiManServer.addFilter(AuthenticationFilter.class, "/users/*", EnumSet.of(DispatcherType.REQUEST));
     }
 
     /**

@@ -7,13 +7,13 @@
 
   <body>
   <div>
-    <div ng-include="'plugins/api-manager/html/progress.include'"></div>
-    <div id="apiman-header" ng-include="'plugins/api-manager/html/navbar.include'"></div>   
+    
+    <div ng-include="headerInclude"></div>   
     <div ng-controller="Apiman.ConsumerSvcController" class="page container" data-field="page" ng-cloak="" ng-show="pageState == 'loaded'">
       <div class="row">
         <div class="col-md-12">
           <ol class="breadcrumb" data-field="breadcrumb">
-            <li><a id="bc-home" href="{{ pluginName }}/dash"><i class="fa fa-home fa-fw"></i><span apiman-i18n-key="home">Home</span></a></li>
+            <li><a id="bc-home" href="{{ pluginName }}/"><i class="fa fa-home fa-fw"></i><span apiman-i18n-key="home">Home</span></a></li>
             <li><a id="bc-orgs" href="{{ pluginName }}/browse/orgs"><i class="fa fa-search fa-fw"></i><span apiman-i18n-key="organizations">Organizations</span></a></li>
             <li><a id="bc-org" href="{{ pluginName }}/browse/orgs/{{params.org}}"><i class="fa fa-shield fa-fw"></i><span>{{ org.name }}</span></a></li>
             <li class="active"><i class="fa fa-puzzle-piece fa-fw"></i><span>{{ service.name }}</span></li>
@@ -41,12 +41,12 @@
             <div class="description" data-field="description" style="margin-bottom: 10px;">{{ service.description }}</div>
             <span class="apiman-form-label" apiman-i18n-key="choose-version">Choose Version:</span>
             <div class="btn-group apiman-entity-action" ng-show="versions.length > 0">
-              <select id="version" apiman-select-picker="" ng-model="selectedServiceVersion" ng-change="setVersion( selectedServiceVersion )" 
+              <select id="version" apiman-select-picker="" ng-model="selectedServiceVersion" ng-change="setVersion( selectedServiceVersion )"
                 title="" class="selectpicker" data-live-search="false" apiman-i18n-skip
                 data-field="versionSelector" data-ng-options="version as version.version for version in versions">
               </select>
             </div>
-            <div apiman-i18n-key="no-published-service-versions-found" class="apiman-label-faded" ng-hide="versions.length > 0">
+            <div apiman-i18n-key="no-published-service-versions-found" class="alert alert-warning no-icon" ng-hide="versions.length > 0">
               No versions of this service have been published.  You will not be able to
               consume this service until it has been published by its owner!
             </div>
@@ -63,19 +63,42 @@
         <!-- Right column -->
         <div class="col-md-8">
           <div class="consumer-section">
-            <div id="managed-endpoint-wrap" ng-show="version.publicService">
+          
+            <div ng-show="version.status != 'Published'">
+              <p class="apiman-no-entities-description" apiman-i18n-key="version-not-published">This version of the selected service is not yet published.  You cannot create a contract until the service provider published this version of the service!</p>
+            </div>
+          
+            <div id="managed-endpoint-wrap" ng-show="version.publicService && version.status == 'Published'">
               <h3 apiman-i18n-key="public-endpoint" class="consumer-header">Public Endpoint</h3>
               <p class="apiman-label-faded" apiman-i18n-key="consumer-service.public-service-warning">
                 Because this is a Public Service, it is possible to invoke it directly, without
                 the need for a Service Contract with an Application.  To directly invoke the
                 Service, send requests to the API Gateway endpoint below.
               </p>
-              <div style="margin-bottom: 20px;">
-                <textarea readonly="readonly" class="apiman-endpoint" style="width:100%">{{ publicEndpoint.managedEndpoint }}</textarea>
+              <div class="input-group" style="width: 100%; margin: 25px 0 45px 0;">
+                <input readonly
+                       type="text"
+                       class="apiman-form-control form-control readonly apiman-readonly"
+                       value="{{ publicEndpoint.managedEndpoint }}"
+                       style="background-color: white; color: black">
+                <span class="input-group-btn">
+                  <button clipboard
+                          text="publicEndpoint.managedEndpoint"
+                          class="btn btn-default clipboard"
+                          type="button"
+                          on-copied="copySuccess()"
+                          on-error="copyFail(err)"
+                          ng-mouseleave="tooltipReset()"
+                          ng-click="tooltipChange()"
+                          style="padding: 2px 6px 4px;"
+                          uib-tooltip="{{ tooltipTxt }}">
+                    <span class="glyphicon glyphicon-copy"></span>
+                  </button>
+                </span>
               </div>
             </div>
 
-            <div id="available-plans-wrap">
+            <div id="available-plans-wrap" ng-show="version.status == 'Published'">
               <h3 apiman-i18n-key="available-plans" class="consumer-header">Available Plans</h3>
               <div class="apiman-plans consumer-section" data-field="plans">
 

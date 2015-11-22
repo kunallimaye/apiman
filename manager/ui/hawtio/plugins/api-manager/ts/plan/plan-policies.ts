@@ -3,7 +3,7 @@
 module Apiman {
 
     export var PlanPoliciesController = _module.controller("Apiman.PlanPoliciesController",
-        ['$q', '$scope', '$location', 'OrgSvcs', 'ApimanSvcs', 'Logger', 'PageLifecycle', 'PlanEntityLoader', 'Dialogs', '$routeParams',
+        ['$q', '$scope', '$location', 'OrgSvcs', 'ApimanSvcs', 'Logger', 'PageLifecycle', 'PlanEntityLoader', 'Dialogs', '$routeParams', 
         ($q, $scope, $location, OrgSvcs, ApimanSvcs, Logger, PageLifecycle, PlanEntityLoader, Dialogs, $routeParams) => {
             var params = $routeParams;
             $scope.organizationId = params.org;
@@ -19,6 +19,7 @@ module Apiman {
             };
 
             $scope.removePolicy = function(policy) {
+                Logger.info('Removing policy: {0}', policy);
                 Dialogs.confirm('Confirm Remove Policy', 'Do you really want to remove this policy from the plan?', function() {
                     OrgSvcs.delete({ organizationId: params.org, entityType: 'plans', entityId: params.plan, versionsOrActivity: 'versions', version: params.version, policiesOrActivity: 'policies', policyId: policy.id }, function(reply) {
                         removePolicy(policy);
@@ -49,7 +50,7 @@ module Apiman {
                 })
             });
 
-            PageLifecycle.loadPage('PlanPolicies', pageData, $scope, function() {
+            PageLifecycle.loadPage('PlanPolicies', 'planView', pageData, $scope, function() {
                 PageLifecycle.setPageTitle('plan-policies', [ $scope.plan.name ]);
             });
         }])

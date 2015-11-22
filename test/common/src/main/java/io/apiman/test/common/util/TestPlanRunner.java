@@ -46,6 +46,7 @@ import org.codehaus.jackson.node.TextNode;
 import org.custommonkey.xmlunit.Diff;
 import org.custommonkey.xmlunit.Difference;
 import org.custommonkey.xmlunit.DifferenceListener;
+import org.custommonkey.xmlunit.ElementNameQualifier;
 import org.custommonkey.xmlunit.XMLAssert;
 import org.custommonkey.xmlunit.XMLUnit;
 import org.junit.Assert;
@@ -55,6 +56,7 @@ import org.mvel2.integration.PropertyHandlerFactory;
 import org.mvel2.integration.VariableResolverFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 
 import com.squareup.okhttp.MediaType;
@@ -102,7 +104,14 @@ public class TestPlanRunner {
 
             for (TestType test : group.getTest()) {
                 String rtPath = test.getValue();
+                Integer delay = test.getDelay();
                 log("Executing REST Test [{0}] - {1}", test.getName(), rtPath);
+                if (delay != null) {
+                    try { Thread.sleep(delay); } catch (InterruptedException e) { }
+                }
+                if (rtPath == null || rtPath.trim().isEmpty()) {
+                    continue;
+                }
                 RestTest restTest = TestUtil.loadRestTest(rtPath, cl);
                 runTest(restTest, baseApiUrl);
                 log("REST Test Completed");
@@ -309,7 +318,31 @@ public class TestPlanRunner {
                 XMLUnit.setIgnoreAttributeOrder(true);
                 XMLUnit.setIgnoreWhitespace(true);
                 XMLUnit.setIgnoreDiffBetweenTextAndCDATA(true);
+                XMLUnit.setCompareUnmatched(false);
                 Diff diff = new Diff(expectedPayload, xmlPayload);
+                // A custom element qualifier allows us to customize how the diff engine
+                // compares the XML nodes.  In this case, we're specially handling any
+                // elements named "entry" so that we can compare the standard XML format
+                // of the Echo service we use for most of our tests.  The format of an
+                // entry looks like:
+                //    <entry>
+                //      <key>Name</key>
+                //      <value>Value</value>
+                //    </entry>
+                diff.overrideElementQualifier(new ElementNameQualifier() {
+                    @Override
+                    public boolean qualifyForComparison(Element control, Element test) {
+                        if (control == null || test == null) {
+                            return super.qualifyForComparison(control, test);
+                        }
+                        if (control.getNodeName().equals("entry") && test.getNodeName().equals("entry")) {
+                            String controlKeyName = control.getElementsByTagName("key").item(0).getTextContent();
+                            String testKeyName = test.getElementsByTagName("key").item(0).getTextContent();
+                            return controlKeyName.equals(testKeyName);
+                        }
+                        return super.qualifyForComparison(control, test);
+                    }
+                });
                 diff.overrideDifferenceListener(new DifferenceListener() {
                     @Override
                     public void skippedComparison(Node control, Node test) {
@@ -317,7 +350,11 @@ public class TestPlanRunner {
                     @Override
                     public int differenceFound(Difference difference) {
                         String value = difference.getControlNodeDetail().getValue();
-                        if ("*".equals(value)) {
+                        String tvalue = null;
+                        if (difference.getControlNodeDetail().getNode() != null) {
+                            tvalue = difference.getControlNodeDetail().getNode().getTextContent();
+                        }
+                        if ("*".equals(value) || "*".equals(tvalue)) {
                             return RETURN_IGNORE_DIFFERENCE_NODES_IDENTICAL;
                         } else {
                             return RETURN_ACCEPT_DIFFERENCE;
@@ -438,12 +475,27 @@ public class TestPlanRunner {
                     TextNode tn = (TextNode) expectedValue;
                     String expected = tn.getTextValue();
                     JsonNode actualValue = actualJson.get(expectedFieldName);
+                    
+                    if (isAssertionIgnoreCase(restTest)) {
+                        expected = expected.toLowerCase();
+                        if (actualValue == null) {
+                            actualValue = actualJson.get(expectedFieldName.toLowerCase());
+                        }
+                    }
+                    
                     Assert.assertNotNull("Expected JSON text field '" + expectedFieldName + "' with value '"
                             + expected + "' but was not found.", actualValue);
                     Assert.assertEquals("Expected JSON text field '" + expectedFieldName + "' with value '"
                             + expected + "' but found non-text [" + actualValue.getClass().getSimpleName()
                             + "] field with that name instead.", TextNode.class, actualValue.getClass());
                     String actual = ((TextNode) actualValue).getTextValue();
+
+                    if (isAssertionIgnoreCase(restTest)) {
+                        if (actual != null) {
+                            actual = actual.toLowerCase();
+                        }
+                    }
+
                     Assert.assertEquals("Value mismatch for text field '" + expectedFieldName + "'.", expected,
                             actual);
                 } else if (expectedValue instanceof NumericNode) {
@@ -502,6 +554,13 @@ public class TestPlanRunner {
                 }
             }
         }
+    }
+
+    /**
+     * @param restTest
+     */
+    private boolean isAssertionIgnoreCase(RestTest restTest) {
+        return "true".equals(restTest.getExpectedResponseHeaders().get("X-RestTest-Assert-IgnoreCase"));
     }
 
     /**

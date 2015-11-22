@@ -15,11 +15,6 @@
  */
 package io.apiman.gateway.engine.es;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 import io.apiman.gateway.engine.async.AsyncResultImpl;
 import io.apiman.gateway.engine.async.IAsyncResult;
 import io.apiman.gateway.engine.async.IAsyncResultHandler;
@@ -28,9 +23,16 @@ import io.apiman.gateway.engine.beans.Contract;
 import io.apiman.gateway.engine.beans.Service;
 import io.apiman.gateway.engine.beans.ServiceContract;
 import io.apiman.gateway.engine.beans.ServiceRequest;
+import io.apiman.gateway.engine.beans.exceptions.InvalidContractException;
+import io.apiman.gateway.engine.es.i18n.Messages;
 import io.searchbox.client.JestResult;
 import io.searchbox.client.JestResultHandler;
 import io.searchbox.core.Get;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Extends the {@link ESRegistry} to provide single-node caching.  This caching solution
@@ -40,7 +42,7 @@ import io.searchbox.core.Get;
  *
  * @author eric.wittmann@redhat.com
  */
-public class CachingESRegistry extends ESRegistry {
+public abstract class CachingESRegistry extends ESRegistry {
 
     private Map<String, ServiceContract> contractCache = new ConcurrentHashMap<>();
     private Map<String, Service> serviceCache = new HashMap<>();
@@ -67,88 +69,19 @@ public class CachingESRegistry extends ESRegistry {
     }
 
     /**
-     * @see io.apiman.gateway.engine.es.ESRegistry#publishService(io.apiman.gateway.engine.beans.Service, io.apiman.gateway.engine.async.IAsyncResultHandler)
-     */
-    @Override
-    public void publishService(final Service service, final IAsyncResultHandler<Void> handler) {
-        super.publishService(service, new IAsyncResultHandler<Void>() {
-            @Override
-            public void handle(IAsyncResult<Void> result) {
-                if (result.isSuccess()) {
-                    cacheService(service);
-                }
-                handler.handle(result);
-            }
-        });
-    }
-
-    /**
-     * @see io.apiman.gateway.engine.es.ESRegistry#registerApplication(io.apiman.gateway.engine.beans.Application, io.apiman.gateway.engine.async.IAsyncResultHandler)
-     */
-    @Override
-    public void registerApplication(final Application application, final IAsyncResultHandler<Void> handler) {
-        final Set<Contract> contracts = application.getContracts();
-        super.registerApplication(application, new IAsyncResultHandler<Void>() {
-            @Override
-            public void handle(IAsyncResult<Void> result) {
-                if (result.isSuccess()) {
-                    application.setContracts(contracts);
-                    cacheApplication(application);
-                }
-                handler.handle(result);
-            }
-        });
-    }
-
-    /**
-     * @see io.apiman.gateway.engine.es.ESRegistry#retireService(io.apiman.gateway.engine.beans.Service, io.apiman.gateway.engine.async.IAsyncResultHandler)
-     */
-    @Override
-    public void retireService(final Service service, final IAsyncResultHandler<Void> handler) {
-        super.retireService(service, new IAsyncResultHandler<Void>() {
-            @Override
-            public void handle(IAsyncResult<Void> result) {
-                if (result.isSuccess()) {
-                    decacheService(service);
-                }
-                handler.handle(result);
-            }
-        });
-    }
-
-    /**
-     * @see io.apiman.gateway.engine.es.ESRegistry#unregisterApplication(io.apiman.gateway.engine.beans.Application, io.apiman.gateway.engine.async.IAsyncResultHandler)
-     */
-    @Override
-    public void unregisterApplication(final Application application, final IAsyncResultHandler<Void> handler) {
-        super.unregisterApplication(application, new IAsyncResultHandler<Void>() {
-            @Override
-            public void handle(IAsyncResult<Void> result) {
-                if (result.isSuccess()) {
-                    decacheApplication(application);
-                }
-                handler.handle(result);
-            }
-        });
-    }
-
-    /**
      * @see io.apiman.gateway.engine.es.ESRegistry#getContract(io.apiman.gateway.engine.beans.ServiceRequest, io.apiman.gateway.engine.async.IAsyncResultHandler)
      */
     @Override
     public void getContract(final ServiceRequest request, final IAsyncResultHandler<ServiceContract> handler) {
+        ServiceContract contract = null;
+        
         String contractKey = getContractKey(request);
         synchronized (mutex) {
-            ServiceContract contract = contractCache.get(contractKey);
-            if (contract != null) {
-                String serviceKey = getServiceKey(contract.getService());
-                Service service = serviceCache.get(serviceKey);
-                if (service == null) {
-                    super.getContract(request, handler);
-                } else {
-                    handler.handle(AsyncResultImpl.create(contract));
-                }
-            } else {
+            contract = contractCache.get(contractKey);
+        }
+        
+        try {
+            if (contract == null) {
                 super.getContract(request, new IAsyncResultHandler<ServiceContract>() {
                     @Override
                     public void handle(IAsyncResult<ServiceContract> result) {
@@ -158,7 +91,17 @@ public class CachingESRegistry extends ESRegistry {
                         handler.handle(result);
                     }
                 });
+            } else {
+                Service service = getService(request.getServiceOrgId(), request.getServiceId(), request.getServiceVersion());
+                if (service == null) {
+                    throw new InvalidContractException(Messages.i18n.format("ESRegistry.ServiceWasRetired", //$NON-NLS-1$
+                            request.getServiceId(), request.getServiceOrgId()));
+                }
+                contract.setService(service);
+                handler.handle(AsyncResultImpl.create(contract));
             }
+        } catch (Throwable e) {
+            handler.handle(AsyncResultImpl.create(e, ServiceContract.class));
         }
     }
 
@@ -168,34 +111,50 @@ public class CachingESRegistry extends ESRegistry {
     @Override
     public void getService(final String organizationId, final String serviceId, final String serviceVersion,
             final IAsyncResultHandler<Service> handler) {
-        synchronized (mutex) {
-            String serviceKey = getServiceKey(organizationId, serviceId, serviceVersion);
-            Service service = serviceCache.get(serviceKey);
-            if (service != null) {
-                handler.handle(AsyncResultImpl.create(service));
-            } else {
-                super.getService(organizationId, serviceId, serviceVersion, new IAsyncResultHandler<Service>() {
-                    @Override
-                    public void handle(IAsyncResult<Service> result) {
-                        if (result.isSuccess()) {
-                            Service svc = result.getResult();
-                            cacheService(svc);
-                        }
-                        handler.handle(result);
-                    }
-                });
-            }
+        try {
+            Service service = getService(organizationId, serviceId, serviceVersion);
+            handler.handle(AsyncResultImpl.create(service));
+        } catch (IOException e) {
+            handler.handle(AsyncResultImpl.create(e, Service.class));
         }
     }
-
+    
     /**
-     * Called to cache the service for fast lookup later.
-     * @param service
+     * Gets the service either from the cache or from ES.
+     * @param orgId
+     * @param serviceId
+     * @param version
      */
-    protected void cacheService(Service service) {
-        String serviceKey = getServiceKey(service);
+    protected Service getService(String orgId, String serviceId, String version) throws IOException {
+        String serviceKey = getServiceKey(orgId, serviceId, version);
+        Service service = null;
         synchronized (mutex) {
-            serviceCache.put(serviceKey, service);
+            service = serviceCache.get(serviceKey);
+        }
+        
+        if (service == null) {
+            service = super.getService(getServiceId(orgId, serviceId, version));
+            synchronized (mutex) {
+                if (service != null) {
+                    serviceCache.put(serviceKey, service);
+                }
+            }
+        }
+        
+        return service;
+    }
+    
+    /**
+     * @see io.apiman.gateway.engine.es.ESRegistry#checkService(io.apiman.gateway.engine.beans.ServiceContract)
+     */
+    @Override
+    protected void checkService(ServiceContract contract) throws InvalidContractException, IOException {
+        Service service = getService(contract.getService().getOrganizationId(), 
+                contract.getService().getServiceId(),
+                contract.getService().getVersion());
+        if (service == null) {
+            throw new InvalidContractException(Messages.i18n.format("ESRegistry.ServiceWasRetired", //$NON-NLS-1$
+                    contract.getService().getServiceId(), contract.getService().getOrganizationId()));
         }
     }
 
@@ -208,9 +167,7 @@ public class CachingESRegistry extends ESRegistry {
             applicationCache.put(applicationKey, application);
             if (application.getContracts() != null) {
                 for (Contract contract : application.getContracts()) {
-                    String svcKey = getServiceKey(contract.getServiceOrgId(), contract.getServiceId(), contract.getServiceVersion());
-                    Service service = serviceCache.get(svcKey);
-                    ServiceContract sc = new ServiceContract(contract.getApiKey(), service, application, contract.getPlan(), contract.getPolicies());
+                    ServiceContract sc = new ServiceContract(contract.getApiKey(), null, application, contract.getPlan(), contract.getPolicies());
                     String contractKey = getContractKey(contract);
                     contractCache.put(contractKey, sc);
                 }
@@ -222,7 +179,7 @@ public class CachingESRegistry extends ESRegistry {
      * @param application
      */
     protected void loadAndCacheApp(Application application) {
-        String id = getApplicationKey(application);
+        String id = getApplicationId(application);
         Get get = new Get.Builder(getIndexName(), id).type("application").build(); //$NON-NLS-1$
         getClient().executeAsync(get, new JestResultHandler<JestResult>() {
             @Override
@@ -237,46 +194,6 @@ public class CachingESRegistry extends ESRegistry {
             public void failed(Exception e) {
             }
         });
-    }
-
-    /**
-     * @param service
-     */
-    protected void decacheService(Service service) {
-        String serviceKey = getServiceKey(service);
-        synchronized (mutex) {
-            if (serviceCache.containsKey(serviceKey)) {
-                serviceCache.remove(serviceKey);
-            }
-        }
-    }
-
-    /**
-     * @param application
-     */
-    protected void decacheApplication(Application application) {
-        String applicationKey = getApplicationKey(application);
-        synchronized (mutex) {
-            if (applicationCache.containsKey(applicationKey)) {
-                Application app = applicationCache.remove(applicationKey);
-                for (Contract contract : app.getContracts()) {
-                    String contractKey = getContractKey(contract);
-                    if (contractCache.containsKey(contractKey)) {
-                        contractCache.remove(contractKey);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Generates an in-memory key for an service, used to index the app for later quick
-     * retrieval.
-     * @param service an service
-     * @return a service key
-     */
-    private String getServiceKey(Service service) {
-        return getServiceKey(service.getOrganizationId(), service.getServiceId(), service.getVersion());
     }
 
     /**
